@@ -17,10 +17,11 @@ if pgrep -x Cities >/dev/null; then
 fi
 
 if [[ "$1" != "--no-launch" ]]; then
-  # Direct start of Cities.app fails now ("Platform service is not running"): the game needs the Paradox Launcher.
-  # Launch via Steam; the launcher then needs a click on Resume (loads the last save).
-  echo "==> Starting game via Steam -> click Resume in the Paradox Launcher"
-  open "steam://rungameid/255710"
+  # Run the binary directly with SteamAppId set (plain `open Cities.app` fails: "Platform service is not running").
+  # --continuelastsave loads the most recent save, so no Paradox Launcher / Resume click is needed.
+  echo "==> Starting game (continue last save)"
+  (cd "$HOME/Library/Application Support/Steam/steamapps/common/Cities_Skylines/Cities.app/Contents/MacOS" && \
+    SteamAppId=255710 SteamGameId=255710 nohup ./Cities --continuelastsave >/dev/null 2>&1 &)
   echo "==> Waiting for API (last save loads automatically)"
   for i in {1..120}; do
     curl -s -m 2 http://127.0.0.1:8080/ping >/dev/null && { echo "API up."; exit 0; }

@@ -32,4 +32,5 @@
 
 ## Directe start van Cities.app werkt niet meer (nov 2026)
 - **Wat:** `open Cities.app` start en sluit direct af; Player.log: `PlatformServiceNotRunningException: Platform service is not running (Steam-Steam)`, ook zonder argumenten. Eerder (zie boven) werkte dit wel.
-- **Fix:** starten via `steam://rungameid/255710`; de Paradox Launcher opent en wil een klik op Resume (laadt de laatste save). `--continuelastsave` staat wel in de launcher, maar de launcher start het spel zelf, dus meegeven helpt niet.
+- **Fix:** binaire direct draaien met `SteamAppId=255710 SteamGameId=255710 ./Cities --continuelastsave` (in `Cities.app/Contents/MacOS`). Steam initialiseert dan zonder launcher en de laatste save laadt vanzelf. Getest: `scripts/restart-game.sh` is volledig automatisch (~50 s).
+- Niet gelukt: via `steam://rungameid` (opent de Paradox Launcher, wil een klik op Resume; `--continuelastsave` meegeven helpt daar niet) en klikken via osascript (terminal heeft geen Toegankelijkheid-rechten).
