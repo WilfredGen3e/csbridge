@@ -7,3 +7,10 @@
 - Bron staat in `src/` (niet `Source/`) zodat het spel niet nog eens probeert te compileren.
 - `GenerateTargetFrameworkAttribute=false` is nodig, Unity's mscorlib kent dat attribuut niet.
 - Debuggen: `~/Library/Logs/Unity/Player.log`, zoek op `CSBridge`.
+
+## Spel laadt de DLL uit obj/
+- **Wat:** Player.log toonde `Loading .../CSBridge/obj/Release/CSBridge.dll`: het spel scant de modmap recursief en pakte de tussenkopie.
+- **Fix:** `Directory.Build.props` zet `BaseIntermediateOutputPath` naar `~/.cache/csbridge/obj/`, zodat er maar één DLL in de modmap staat.
+
+## AddAction draait ook als het spel gepauzeerd is
+- Getest (fase 1): `/stats` antwoordt direct terwijl `paused: true`. Lezen en acties via `SimulationManager.AddAction` werken dus op pauze.

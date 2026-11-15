@@ -1,0 +1,6 @@
+<Project>
+  <!-- Keep intermediate output outside the mod folder so the game only ever sees one CSBridge.dll -->
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>$(HOME)/.cache/csbridge/obj/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>

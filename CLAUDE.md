@@ -1,7 +1,7 @@
 # CSBridge
 
 ## Doel
-CS1-mod met lokale HTTP-API zodat een AI-agent het spel kan uitlezen en besturen.
+Een Cities: Skylines MCP-server: de Claude-app (lokaal) kan CS1 op macOS uitlezen en besturen. Twee delen: de mod (C#, HTTP-API in het spel) en een MCP-server (`mcp/`, Node, stdio) die de endpoints als tools aanbiedt. Bedoeld om op GitHub te publiceren: release = DLL + MCP-server; game-DLLs nooit meeleveren; localhost-API beveiligd tegen browsers (Host/Origin-check).
 
 ## Technische keuzes
 - Unity Mono, .NET 3.5-profiel. CS1 op macOS kan zelf NIET compileren (geen Mono-compiler): bouw met `dotnet build CSBridge.csproj -c Release` -> `CSBridge.dll` in de root, herstart het spel.
@@ -11,11 +11,12 @@ CS1-mod met lokale HTTP-API zodat een AI-agent het spel kan uitlezen en besturen
 - Log: `bridge.log` in de modmap (gitignored).
 
 ## Structuur
-- `src/` mod-code (BridgeMod.cs = IUserMod, BridgeLog.cs = logging), `CSBridge.csproj` bouwt de DLL
+- `src/` mod-code: BridgeMod.cs (IUserMod + LoadingExtensionBase), HttpServer.cs (TcpListener), Endpoints.cs, GameThread.cs (AddAction + wachten), Json.cs, BridgeLog.cs. `CSBridge.csproj` bouwt de DLL; `Directory.Build.props` legt obj/ buiten de repo (~/.cache/csbridge).
 - `docs/LESSONS.md` valkuilen; lees dit voor je nieuwe functionaliteit begint.
 - `mcp/` (fase 5)
 
 ## Status
-- Fase 0: symlink + scaffold + dotnet-build werken; DLL laden in het spel nog niet bevestigd.
+- Mod laadt in het spel (bevestigd). Fase 1 code geschreven (/ping, /stats), nog niet getest in een geladen stad.
+- ILSpy: `dotnet tool install ilspycmd --tool-path <dir>`; draaien met `DOTNET_ROOT=/opt/homebrew/Cellar/dotnet/<ver>/libexec`. Controleer spel-API altijd in de decompilatie.
 
 Zie `docs/LESSONS.md` voor valkuilen (lees voor nieuwe functionaliteit).
