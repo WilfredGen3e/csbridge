@@ -1,0 +1,7 @@
+bridge.log
+.DS_Store
+mcp/node_modules/
+obj/
+bin/
+*.dll
+*.pdb
