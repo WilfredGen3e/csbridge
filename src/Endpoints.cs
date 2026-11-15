@@ -20,6 +20,7 @@ namespace CSBridge
             ZoneEndpoints.Register(server);
             UnlockEndpoints.Register(server);
             UiEndpoints.Register(server);
+            DistrictEndpoints.Register(server);
         }
 
         private static HttpResponse Ping(HttpRequest req)

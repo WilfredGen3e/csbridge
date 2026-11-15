@@ -218,6 +218,38 @@ postTool(
   "/unlock"
 );
 
+// ---- Phase 5: districts and policies ----
+tool(server, "get_districts", "List districts (id, name, population, area_cells of 19.2 m each, happiness, crime). District 0 is the whole city. Note: new districts get high ids (e.g. 127).", "/districts");
+postTool(
+  server,
+  "create_district",
+  "Create a district by painting a round area (radius 10-1000 m) at x,z; add x2,z2 to paint a line-shaped area instead. Districts have their own policies and statistics. " + COORD,
+  { name: z.string().optional(), x: z.number(), z: z.number(), radius: z.number().optional().describe("Default 100"), x2: z.number().optional(), z2: z.number().optional() },
+  "/district/create"
+);
+postTool(
+  server,
+  "paint_district",
+  "Add an area to an existing district (round, or line-shaped with x2,z2), or erase=true to remove the area from any district.",
+  { district: z.number().int().optional(), x: z.number(), z: z.number(), radius: z.number().optional(), x2: z.number().optional(), z2: z.number().optional(), erase: z.boolean().optional() },
+  "/district/paint"
+);
+postTool(server, "delete_district", "Delete a district by id.", { district: z.number().int() }, "/district/delete");
+getTool(
+  server,
+  "get_policies",
+  "List policies and whether each is enabled/unlocked, for the whole city (district=0) or one district. type: Services, Taxation, CityPlanning, Special, Specialization, Event.",
+  { district: z.number().int().optional(), type: z.string().optional(), unlocked: z.boolean().optional() },
+  "/policies"
+);
+postTool(
+  server,
+  "set_policy",
+  "Enable or disable a policy (name from get_policies) for the whole city (district omitted or 0) or one district. Policies have upkeep costs.",
+  { policy: z.string(), enabled: z.boolean(), district: z.number().int().optional() },
+  "/policy"
+);
+
 tool(server, "get_ui", "List the popup windows currently open in the game UI (name, size). A tutorial or milestone popup can freeze the game; close it with close_ui.", "/ui");
 postTool(server, "close_ui", "Close an open popup window by name (from get_ui), e.g. GenericTutorialHelper.", { name: z.string() }, "/ui/close");
 
