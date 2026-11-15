@@ -11,6 +11,7 @@ namespace CSBridge
         {
             server.Get("/ping", Ping);
             server.Get("/stats", Stats);
+            EconomyEndpoints.Register(server);
         }
 
         private static HttpResponse Ping(HttpRequest req)

@@ -16,7 +16,7 @@ Een Cities: Skylines MCP-server: de Claude-app (lokaal) kan CS1 op macOS uitleze
 - `mcp/` Node MCP-server (stdio, @modelcontextprotocol/sdk, ESM). `index.js` heeft tools ping en get_stats; elke nieuwe endpoint = één `tool(...)`-regel. Test zonder Claude-app: JSON-RPC over stdin pipen.
 
 ## Status
-- Mod laadt in het spel (bevestigd). Fase 1 klaar en getest (/ping, /stats; geld is oneindig bij Stefan, dus money = long.Max/100). MCP-server werkt via stdio-test; nog niet in de Claude-app geregistreerd.
+- Mod laadt in het spel (bevestigd). Fase 1 klaar en getest (/ping, /stats; geld is oneindig bij Stefan, dus money = long.Max/100). MCP-server draait in de Claude-app. Fase 2: /demand en /budget gebouwd en werkend (waarden nog te vergelijken met het budgetpaneel); /services, /traffic, /problems todo.
 - ILSpy: `dotnet tool install ilspycmd --tool-path <dir>`; draaien met `DOTNET_ROOT=/opt/homebrew/Cellar/dotnet/<ver>/libexec`. Controleer spel-API altijd in de decompilatie.
 
 Zie `docs/LESSONS.md` voor valkuilen (lees voor nieuwe functionaliteit).

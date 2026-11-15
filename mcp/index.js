@@ -39,5 +39,17 @@ tool(
   "Get basic city stats: population, money, in-game time, paused (bool) and game speed.",
   "/stats"
 );
+tool(
+  server,
+  "get_demand",
+  "Get zone demand (0-100, like the demand bars in the game): residential, commercial, industrial_and_office, plus the 'actual' values.",
+  "/demand"
+);
+tool(
+  server,
+  "get_budget",
+  "Get the budget: total income/expenses, loan and policy expenses, tax rates (percent), and income/expenses plus day/night budget percent per service. Money values are in game currency.",
+  "/budget"
+);
 
 await server.connect(new StdioServerTransport());

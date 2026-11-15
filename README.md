@@ -47,7 +47,7 @@ Loopback only. Requests with a non-loopback `Host` or any `Origin` header (i.e. 
 
 ## Roadmap
 1. `/ping`, `/stats`
-2. Read: `/budget`, `/demand`, `/services`, `/traffic`, `/problems`
+2. Read: `/demand`, `/budget` (done); `/services`, `/traffic`, `/problems` (todo)
 3. Actions: `/speed`, `/pause`, `/taxes`, `/budget`, `/building/place`
 4. Roads and zones
 5. MCP server + GitHub Release (DLL + MCP server)
