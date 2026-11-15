@@ -105,6 +105,10 @@ namespace CSBridge
                     req = ReadRequest(stream);
                     resp = req == null ? HttpResponse.Error(400, "Bad request") : Dispatch(req);
                 }
+                catch (ApiException ex)
+                {
+                    resp = HttpResponse.Error(ex.Status, ex.Message);
+                }
                 catch (GameThread.TimeoutException ex)
                 {
                     BridgeLog.Error("Timeout", ex);
@@ -207,7 +211,7 @@ namespace CSBridge
         private static void Write(NetworkStream stream, HttpResponse resp)
         {
             byte[] body = Encoding.UTF8.GetBytes(resp.Body ?? "");
-            string status = resp.Status == 200 ? "OK" : resp.Status == 400 ? "Bad Request" : resp.Status == 403 ? "Forbidden"
+            string status = resp.Status == 200 ? "OK" : resp.Status == 400 ? "Bad Request" : resp.Status == 403 ? "Forbidden" : resp.Status == 422 ? "Unprocessable Entity"
                 : resp.Status == 404 ? "Not Found" : resp.Status == 405 ? "Method Not Allowed" : resp.Status == 503 ? "Service Unavailable" : "Error";
             string head = "HTTP/1.1 " + resp.Status + " " + status + "\r\n"
                 + "Content-Type: application/json; charset=utf-8\r\n"

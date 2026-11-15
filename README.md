@@ -26,6 +26,8 @@ The game's DLLs are only referenced while building, never redistributed.
 ## Try it
     curl http://127.0.0.1:8080/ping
     curl http://127.0.0.1:8080/stats
+    curl -X POST -d '{"paused":true}' http://127.0.0.1:8080/pause
+    curl -X POST -d '{"speed":2}' http://127.0.0.1:8080/speed   # also unpauses
 
 Logs: `bridge.log` in this folder.
 
@@ -48,6 +50,6 @@ Loopback only. Requests with a non-loopback `Host` or any `Origin` header (i.e. 
 ## Roadmap
 1. `/ping`, `/stats`
 2. Read: `/demand`, `/budget`, `/services`, `/traffic`, `/problems` (done)
-3. Actions: `/speed`, `/pause`, `/taxes`, `/budget`, `/building/place`
+3. Actions: `/pause`, `/speed` (done); `/taxes`, `/budget`, `/building/place` (todo)
 4. Roads and zones
 5. MCP server + GitHub Release (DLL + MCP server)

@@ -2,6 +2,7 @@
 // MCP server (stdio) that exposes the CSBridge mod's HTTP API as tools.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
 
 const BASE = process.env.CSBRIDGE_URL || "http://127.0.0.1:8080";
 
@@ -68,6 +69,36 @@ tool(
   "get_problems",
   "Get buildings with problem notifications, grouped by problem type with counts and a few sample buildings (id, prefab, x, z).",
   "/problems"
+);
+
+function postTool(name, description, shape, path) {
+  server.tool(name, description, shape, async (args) => {
+    try {
+      const text = await call(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(args),
+      });
+      return { content: [{ type: "text", text }] };
+    } catch (e) {
+      return { isError: true, content: [{ type: "text", text: e.message }] };
+    }
+  });
+}
+
+postTool(
+  server,
+  "set_paused",
+  "Pause or unpause the game. Returns the new paused state and speed.",
+  { paused: z.boolean().describe("true to pause, false to resume") },
+  "/pause"
+);
+postTool(
+  server,
+  "set_speed",
+  "Set the game speed (1 = normal, 2 = fast, 3 = fastest). Note: setting the speed also unpauses the game.",
+  { speed: z.number().int().min(1).max(3).describe("Game speed 1-3") },
+  "/speed"
 );
 
 await server.connect(new StdioServerTransport());

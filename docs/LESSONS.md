@@ -21,3 +21,7 @@
 - Gebouwproblemen: `Building.m_problems` is een `Notification.ProblemStruct`; cast naar `Problem1`/`Problem2` (ulong-flags) en loop over losse bits. `MajorProblem`/`FatalProblem` zijn ernst-bits, geen soort probleem.
 - zsh: `echo == x` faalt (`=` expansie); quote het.
 - `unemployment_percent` is 100 bij 0 werkenden en 0 banen (spel deelt kennelijk anders door nul); interpreteer niet zonder `workers`/`workplaces`.
+
+## Snelheid zetten zet de pauze uit
+- `SimulationManager.SelectedSimulationSpeed` (setter) zet `m_simulationPaused` op false. Wil je pauzeren op een snelheid: eerst `/speed`, daarna `/pause`. Staat ook in de MCP-tool-beschrijving.
+- Setters van SimulationManager vanaf de simulatiedraad (via AddAction) werken zonder problemen.

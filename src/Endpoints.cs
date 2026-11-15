@@ -13,6 +13,7 @@ namespace CSBridge
             server.Get("/stats", Stats);
             EconomyEndpoints.Register(server);
             CityEndpoints.Register(server);
+            ActionEndpoints.Register(server);
         }
 
         private static HttpResponse Ping(HttpRequest req)
