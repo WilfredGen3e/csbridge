@@ -82,6 +82,7 @@ namespace CSBridge
             // The popups appear a moment later on the UI thread: check again and release the freeze they cause.
             bool wasForcedBefore = false;
             System.Threading.Thread.Sleep(1500);
+            try { UiEndpoints.CloseByName("UnlockingPanel"); } catch (Exception) { /* panel not shown: fine */ }
             GameThread.Run<bool>(delegate ()
             {
                 SimulationManager sim = Singleton<SimulationManager>.instance;

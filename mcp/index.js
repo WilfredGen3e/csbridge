@@ -3,6 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { readFile } from "node:fs/promises";
 
 const BASE = process.env.CSBRIDGE_URL || "http://127.0.0.1:8080";
 
@@ -249,6 +250,43 @@ postTool(
   { policy: z.string(), enabled: z.boolean(), district: z.number().int().optional() },
   "/policy"
 );
+
+// ---- Phase 6: camera, screenshots, views ----
+tool(server, "get_camera", "Camera focus point (x, y, z), size (view distance in metres, smaller = closer), heading and pitch in degrees.", "/camera");
+postTool(
+  server,
+  "set_camera",
+  "Move the camera. x,z = focus point; size 40-3000 (view distance; ~350 shows a few blocks, ~1500 a district); pitch 0-90 (90 = straight down like a map, 45-50 = isometric); heading 0-360. Moves instantly by default. " + COORD,
+  { x: z.number().optional(), z: z.number().optional(), size: z.number().min(40).max(3000).optional(), pitch: z.number().min(0).max(90).optional(), heading: z.number().optional(), instant: z.boolean().optional() },
+  "/camera"
+);
+server.tool(
+  "screenshot",
+  "Take a screenshot of the game view and return it as an image, so you can see what you built. By default the UI and the blur effects are hidden. Position the camera first with set_camera; use set_view for info views (traffic, electricity, zones...) and set_time for daylight.",
+  { hide_ui: z.boolean().optional().describe("Default true") },
+  async (args) => {
+    try {
+      const qs = args.hide_ui === false ? "?hide_ui=0" : "";
+      const info = JSON.parse(await call("/screenshot" + qs));
+      const data = await readFile(info.path);
+      return { content: [
+        { type: "image", data: data.toString("base64"), mimeType: "image/png" },
+        { type: "text", text: "Saved at " + info.path },
+      ] };
+    } catch (e) {
+      return { isError: true, content: [{ type: "text", text: e.message }] };
+    }
+  }
+);
+tool(server, "get_views", "List the info views (map overlays) and which one is active.", "/view");
+postTool(
+  server,
+  "set_view",
+  "Switch the map overlay, like the game's info view buttons: None (normal), Traffic, Electricity, Water, Happiness, Density, LandValue, Pollution, Garbage, Health, FireSafety, CrimeRate, Education, Districts, Connections, ... (full list from get_views).",
+  { mode: z.string() },
+  "/view"
+);
+postTool(server, "set_time", "Set the time of day (0-24, e.g. 12 for noon) without changing the date. Handy for daylight screenshots.", { hour: z.number().min(0).max(23.99) }, "/time");
 
 tool(server, "get_ui", "List the popup windows currently open in the game UI (name, size). A tutorial or milestone popup can freeze the game; close it with close_ui.", "/ui");
 postTool(server, "close_ui", "Close an open popup window by name (from get_ui), e.g. GenericTutorialHelper.", { name: z.string() }, "/ui/close");

@@ -50,3 +50,11 @@
 ## Popups blokkeren het spel; sluiten vanuit de mod
 - Na het laden staat `GenericTutorialHelper` open; popups kunnen `ForcedSimulationPaused` zetten. Klikken/toetsen sturen vanuit de terminal lukt niet (geen Toegankelijkheid- of schermopname-rechten; `CGEvent` wordt genegeerd).
 - Fix: `GET /ui` en `POST /ui/close {"name":...}` (UI-code via `ThreadHelper.dispatcher`, de Unity-hoofdthread; niet via `SimulationManager.AddAction`). `restart-game.sh` sluit de tutorial automatisch.
+
+## Camera en screenshots
+- `Application.CaptureScreenshot(path, 1)` (Unity 5) schrijft pas aan het einde van de frame: na het aanroepen wachten tot het bestand bestaat en niet meer groeit. UI/camera-code moet op de hoofdthread (`ThreadHelper.dispatcher`), niet via AddAction.
+- `UIView.Show(false)` helpt niet: `CameraController.Update` zet de UI elke frame terug, behalve in `m_freeCamera`-modus. Voor een screenshot zonder UI: tijdelijk `m_freeCamera = true` + `UIView.Show(false)`, daarna terugzetten.
+- Blur aan de randen komt van `m_TiltShiftAmount` (SavedFloat) en `m_DOFMode` (SavedInt), privé velden van `CameraController`; via reflectie tijdelijk op 0 zetten.
+- Tijd van de dag: `m_dayTimeOffsetFrames = (uur * DAYTIME_HOUR_TO_FRAME - m_referenceFrameIndex) & (DAYTIME_FRAMES - 1)`.
+- Het milestone-venster na `/unlock` heet `UnlockingPanel` (modaal); `/unlock` sluit het nu zelf. `/ui` filtert panelen op diepte <= 3 en minimale grootte (anders vind je het niet).
+- Screenshots staan in `$TMPDIR/csbridge-screenshots/`; de MCP-tool `screenshot` leest het bestand en geeft het als afbeelding terug.

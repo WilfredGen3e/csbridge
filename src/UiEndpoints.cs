@@ -35,6 +35,13 @@ namespace CSBridge
             return result;
         }
 
+        private static int Depth(UIComponent c)
+        {
+            int d = 0;
+            while (c != null && c.parent != null) { d++; c = c.parent; }
+            return d;
+        }
+
         private static List<UIPanel> VisibleTopPanels()
         {
             List<UIPanel> list = new List<UIPanel>();
@@ -44,8 +51,9 @@ namespace CSBridge
             {
                 if (p == null || !p.isVisible || p.name == null) continue;
                 // Popups are direct children of the view's root; deeper panels are parts of those.
-                if (p.parent == null || p.parent.parent != null) continue;
-                if (p.width < 100f || p.height < 60f) continue;
+                if (Depth(p) > 3) continue;
+                if (p.width < 200f || p.height < 100f) continue;
+                if (p.name == "FullScreenContainer" || p.name == "TSBar" || p.name == "InfoPanel") continue;
                 list.Add(p);
             }
             return list;
@@ -58,11 +66,27 @@ namespace CSBridge
             {
                 JsonWriter w = new JsonWriter().Obj().ArrIn("panels");
                 foreach (UIPanel p in VisibleTopPanels())
-                    w.Obj().Prop("name", p.name).Prop("width", p.width).Prop("height", p.height)
+                    w.Obj().Prop("name", p.name).Prop("depth", Depth(p)).Prop("width", p.width).Prop("height", p.height)
                         .Prop("modal", UIView.HasModalInput() && UIView.GetModalComponent() == p).EndObj();
                 return w.EndArr().EndObj().ToString();
             }, 5000);
             return HttpResponse.Json(200, json);
+        }
+
+        /// <summary>Hide a visible popup by name (main thread); returns false when it is not shown.</summary>
+        public static bool CloseByName(string name)
+        {
+            return OnMainThread<bool>(delegate ()
+            {
+                foreach (UIPanel p in VisibleTopPanels())
+                {
+                    if (!string.Equals(p.name, name, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (UIView.HasModalInput() && UIView.GetModalComponent() == p) UIView.PopModal();
+                    p.Hide();
+                    return true;
+                }
+                return false;
+            }, 5000);
         }
 
         // POST /ui/close {"name":"UnlockingPanel"}  (hides the panel; "all_modal":true closes the current modal one)

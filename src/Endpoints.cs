@@ -21,6 +21,7 @@ namespace CSBridge
             UnlockEndpoints.Register(server);
             UiEndpoints.Register(server);
             DistrictEndpoints.Register(server);
+            CameraEndpoints.Register(server);
         }
 
         private static HttpResponse Ping(HttpRequest req)
