@@ -152,6 +152,7 @@ getTool(
     radius: z.number().min(1).max(2000).optional().describe("Default 300 when x/z are given"),
     limit: z.number().int().min(1).max(3000).optional().describe("Max roads and max buildings returned (default 400)"),
     zones: z.boolean().optional().describe("Include zoned cells (default true)"),
+    include_virtual: z.boolean().optional().describe("Also list the game's virtual helper networks (transport line paths, pedestrian links); default false"),
   },
   "/map"
 );
@@ -287,6 +288,25 @@ postTool(
   "/view"
 );
 postTool(server, "set_time", "Set the time of day (0-24, e.g. 12 for noon) without changing the date. Handy for daylight screenshots.", { hour: z.number().min(0).max(23.99) }, "/time");
+
+// ---- Phase 7: public transport ----
+tool(server, "get_transport_types", "Transport types in this game (Bus, Metro, Train, Ship, Airplane, ...) with whether they are unlocked and street_based (bus/tram/trolleybus run on roads; the rest need station buildings).", "/transport/types");
+tool(server, "get_transport_lines", "All transport lines: id, name, type, stops (positions), vehicles, length, passengers, budget and ticket price.", "/transport/lines");
+postTool(
+  server,
+  "create_transport_line",
+  "Create a public transport line. stops = \"x,z;x,z;...\" (2-32, in order; the line is closed back to the first stop). Bus/Tram/Trolleybus: stops go on the middle of the nearest suitable road segment within 40 m. Train/Metro/Ship/Airplane: each stop is the nearest matching station building within 150 m (place stations with place_building and connect them with build_road tracks first; a Train Station connects via its Train Station Track ends). Vehicles come from depots (Bus Depot etc.) and start after a few game days. " + COORD,
+  { type: z.string().describe("Bus, Tram, Trolleybus, Train, Metro, Ship, Airplane..."), stops: z.string(), name: z.string().optional() },
+  "/transport/line/create"
+);
+postTool(server, "delete_transport_line", "Delete a transport line by id.", { line: z.number().int() }, "/transport/line/delete");
+postTool(
+  server,
+  "set_transport_line",
+  "Change a line: budget (50-150 %), ticket_price (in cents) and/or active (true/false).",
+  { line: z.number().int(), budget: z.number().int().min(50).max(150).optional(), ticket_price: z.number().int().min(0).optional(), active: z.boolean().optional() },
+  "/transport/line/set"
+);
 
 tool(server, "get_ui", "List the popup windows currently open in the game UI (name, size). A tutorial or milestone popup can freeze the game; close it with close_ui.", "/ui");
 postTool(server, "close_ui", "Close an open popup window by name (from get_ui), e.g. GenericTutorialHelper.", { name: z.string() }, "/ui/close");

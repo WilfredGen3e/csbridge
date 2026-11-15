@@ -31,6 +31,7 @@ namespace CSBridge
                 BuildEndpoints.CheckBounds(cx, cz);
             }
             int limit = BuildEndpoints.GetIntQ(q, "limit", 400, 1, 3000);
+            bool virt = q.ContainsKey("include_virtual") && q["include_virtual"] != "0" && q["include_virtual"] != "false";
             bool zones = !q.ContainsKey("zones") || (q["zones"] != "0" && q["zones"] != "false");
 
             string json = GameThread.Run<string>(delegate ()
@@ -49,6 +50,8 @@ namespace CSBridge
                     if ((s.m_flags & NetSegment.Flags.Created) == NetSegment.Flags.None) continue;
                     NetInfo info = s.Info;
                     if (info == null) continue;
+                    // Skip the game's virtual helper networks (transport line paths, pedestrian links) unless asked for.
+                    if (!virt && (info.m_netAI is TransportLineAI || info.name.StartsWith("Pedestrian Connection"))) continue;
                     Vector3 a = nm.m_nodes.m_buffer[s.m_startNode].m_position, b = nm.m_nodes.m_buffer[s.m_endNode].m_position;
                     segCount++;
                     if (!area || roadsOut >= limit) continue;

@@ -53,7 +53,8 @@ namespace CSBridge
                 NetNode n = nm.m_nodes.m_buffer[i];
                 if ((n.m_flags & NetNode.Flags.Created) == NetNode.Flags.None || n.Info == null) continue;
                 if (n.Info.m_class.m_service != info.m_class.m_service) continue;
-                if ((n.m_flags & NetNode.Flags.Untouchable) != NetNode.Flags.None) continue;
+                // Station/building nodes are untouchable, except their free track ends, which you can connect to.
+                if ((n.m_flags & NetNode.Flags.Untouchable) != NetNode.Flags.None && n.CountSegments() != 1) continue;
                 float d = Dist2D(n.m_position, p);
                 if (d < bestD) { bestD = d; best.Node = (ushort)i; best.Segment = 0; best.Pos = n.m_position; }
             }

@@ -58,3 +58,11 @@
 - Tijd van de dag: `m_dayTimeOffsetFrames = (uur * DAYTIME_HOUR_TO_FRAME - m_referenceFrameIndex) & (DAYTIME_FRAMES - 1)`.
 - Het milestone-venster na `/unlock` heet `UnlockingPanel` (modaal); `/unlock` sluit het nu zelf. `/ui` filtert panelen op diepte <= 3 en minimale grootte (anders vind je het niet).
 - Screenshots staan in `$TMPDIR/csbridge-screenshots/`; de MCP-tool `screenshot` leest het bestand en geeft het als afbeelding terug.
+
+## Openbaar vervoer
+- Een lijn (`TransportManager.CreateLine` + `TransportLine.AddStop`) rijdt pas als hij `Complete` is: sluit hem door als laatste het eerste stoppunt nog eens toe te voegen (index -1). Eerste stop index 0, daarna -1 (aan het eind).
+- Straatlijnen (Bus/Tram/Trolleybus): stoppositie = `GetClosestLanePosition` (voetgangersstrook, dan voertuigstrook) + `NetLane.CalculateStopPositionAndDirection(128/255, stopOffset)`: dus het midden van het dichtstbijzijnde wegvak, `fixedPlatform: true`. Stations (trein/metro/schip/vliegtuig): `BuildingAI.CalculateSpawnPosition` (12 seeds, nu dichtstbij), `fixedPlatform: false`.
+- Bussen komen uit een depot (`Bus Depot` plaatsen); treinen en metro uit het station zelf. Vervoer begint na enkele spel-dagen (voertuigen worden pas daarna gespawnd).
+- Stationssporen: eindknopen van "Train Station Track" zijn `Untouchable` maar wel aan te sluiten (`CountSegments() == 1`); `build_road` met "Train Track" snapt dan op beide stations.
+- Het spel maakt virtuele netwerken ("Train Line", "Pedestrian Connection Inside", `TransportLineAI`) aan; `/map` verbergt ze standaard (`include_virtual=1` toont ze).
+- Prefabs staan pas als `unlocked` nadat de simulatie een stap heeft gezet na `/unlock` (de milestones worden daar verwerkt), niet meteen.

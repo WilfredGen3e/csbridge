@@ -22,7 +22,7 @@ Een Cities: Skylines MCP-server: de Claude-app (lokaal) kan CS1 op macOS uitleze
 - Fase 1-3 klaar (ping, stats, demand, budget, services, traffic, problems, pause, speed, taxes, budget-set).
 - Fase 4 (bouwen) getest in het echte spel: GET /prefabs, /map, /terrain, /areas, /progress; POST /building/place|bulldoze, /road/build|upgrade|bulldoze, /zone, /areas/unlock, /unlock. Zones groeien (bevolking steeg), stroom/water via build_road met Power Line / Water Pipe. Alles heeft een MCP-tool.
 - Fase 5: districten (/districts, /district/create|paint|delete) en beleid (/policies, /policy). Fase 6: /camera, /screenshot (PNG, via MCP als afbeelding), /view (info-views), /time, /ui. Zelf kijken: set_camera + screenshot.
-- Testen: `scripts/restart-game.sh` herlaadt de laatste save (testwijzigingen zijn dus weg tenzij het spel opslaat). Nog te doen: openbaar vervoer-lijnen, tunnel/brug-hoogtes testen, weer, README bijwerken.
+- Testen: `scripts/restart-game.sh` herlaadt de laatste save (testwijzigingen zijn dus weg tenzij het spel opslaat). Fase 7: /transport/types|lines, /transport/line/create|delete|set (bus/tram/trolleybus op wegen; trein/metro/schip/vliegtuig tussen stationsgebouwen; trein getest, metro/tram niet). Nog te doen: metro/tram testen, tunnel/brug-hoogtes testen, weer, README bijwerken.
 - ILSpy: `dotnet tool install ilspycmd --tool-path <dir>`; draaien met `DOTNET_ROOT=/opt/homebrew/Cellar/dotnet/<ver>/libexec`. Controleer spel-API altijd in de decompilatie.
 
 Zie `docs/LESSONS.md` voor valkuilen (lees voor nieuwe functionaliteit).
