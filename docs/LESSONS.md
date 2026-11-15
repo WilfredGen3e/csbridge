@@ -14,3 +14,10 @@
 
 ## AddAction draait ook als het spel gepauzeerd is
 - Getest (fase 1): `/stats` antwoordt direct terwijl `paused: true`. Lezen en acties via `SimulationManager.AddAction` werken dus op pauze.
+
+## Gebruik de getters en velden van de spel-UI
+- Voor stats niet zelf aggregeren: `DistrictManager.m_districts.m_buffer[0]` (district 0 = hele stad) heeft getters als `GetElectricityCapacity()` die ook de info-panelen gebruiken. Zoek de formule op door het bijbehorende `*InfoViewPanel` te decompileren (ilspycmd).
+- Elektriciteit: ruwe waarde / 1000 = MW (zoals het paneel). Verkeersflow: `VehicleManager.m_lastTrafficFlow` (0-100).
+- Gebouwproblemen: `Building.m_problems` is een `Notification.ProblemStruct`; cast naar `Problem1`/`Problem2` (ulong-flags) en loop over losse bits. `MajorProblem`/`FatalProblem` zijn ernst-bits, geen soort probleem.
+- zsh: `echo == x` faalt (`=` expansie); quote het.
+- `unemployment_percent` is 100 bij 0 werkenden en 0 banen (spel deelt kennelijk anders door nul); interpreteer niet zonder `workers`/`workplaces`.

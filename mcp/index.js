@@ -51,5 +51,23 @@ tool(
   "Get the budget: total income/expenses, loan and policy expenses, tax rates (percent), and income/expenses plus day/night budget percent per service. Money values are in game currency.",
   "/budget"
 );
+tool(
+  server,
+  "get_services",
+  "Get service capacity vs. consumption for the whole city: electricity (MW), water, sewage, garbage, health, education, police, employment.",
+  "/services"
+);
+tool(
+  server,
+  "get_traffic",
+  "Get overall traffic flow in percent (0-100, higher is better), as in the game's traffic info view.",
+  "/traffic"
+);
+tool(
+  server,
+  "get_problems",
+  "Get buildings with problem notifications, grouped by problem type with counts and a few sample buildings (id, prefab, x, z).",
+  "/problems"
+);
 
 await server.connect(new StdioServerTransport());

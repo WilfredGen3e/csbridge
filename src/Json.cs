@@ -37,6 +37,9 @@ namespace CSBridge
         public JsonWriter Prop(string key, double v) { Sep(); sb.Append(Quote(key)).Append(':').Append(v.ToString("R", CultureInfo.InvariantCulture)); return this; }
         public JsonWriter Prop(string key, bool v) { Sep(); sb.Append(Quote(key)).Append(':').Append(v ? "true" : "false"); return this; }
 
+        /// <summary>Append an already-serialized JSON value (e.g. as array element).</summary>
+        public JsonWriter Raw(string json) { Sep(); sb.Append(json); return this; }
+
         public override string ToString() { return sb.ToString(); }
 
         public static string Quote(string s)

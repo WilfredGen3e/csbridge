@@ -6,7 +6,7 @@ Two parts:
 1. **Mod** (C#, runs inside the game): reads game state and executes actions, exposed as a local HTTP API on `127.0.0.1:8080`.
 2. **MCP server** (`mcp/`, Node, planned): translates MCP tools to calls on that HTTP API. The Claude app starts it from its config.
 
-> Status: early. Phase 1 done (`/ping`, `/stats`); MCP server has `ping` and `get_stats`.
+> Status: early. Phases 1 and 2 done (read-only endpoints); MCP tools for all of them.
 
 ## Install (mod)
 The macOS game cannot compile mod source itself, so a prebuilt `CSBridge.dll` is used.
@@ -47,7 +47,7 @@ Loopback only. Requests with a non-loopback `Host` or any `Origin` header (i.e. 
 
 ## Roadmap
 1. `/ping`, `/stats`
-2. Read: `/demand`, `/budget` (done); `/services`, `/traffic`, `/problems` (todo)
+2. Read: `/demand`, `/budget`, `/services`, `/traffic`, `/problems` (done)
 3. Actions: `/speed`, `/pause`, `/taxes`, `/budget`, `/building/place`
 4. Roads and zones
 5. MCP server + GitHub Release (DLL + MCP server)
