@@ -46,6 +46,8 @@ namespace CSBridge
             string json = GameThread.Run<string>(delegate ()
             {
                 UnlockManager um = Singleton<UnlockManager>.instance;
+                SimulationManager sim = Singleton<SimulationManager>.instance;
+                bool wasForced = sim.ForcedSimulationPaused;
                 bool all = what == "all";
                 if (all || what == "progression") um.UnlockAllProgressionMilestones();
                 if (all || what == "monuments") um.UnlockAllMonumentMilestones();
@@ -69,12 +71,23 @@ namespace CSBridge
                         }
                     }
                 }
+                // Unlocking pops up panels in the game UI that freeze the simulation; undo that freeze.
+                if (!wasForced && sim.ForcedSimulationPaused) sim.ForcedSimulationPaused = false;
                 JsonWriter w = new JsonWriter().Obj().Prop("ok", true).Prop("what", what).Prop("tiles_bought", tilesBought);
                 MilestoneInfo current = um.GetCurrentMilestone();
                 w.Prop("current_milestone", current != null ? current.name : null);
                 w.Prop("unlocked_areas", Singleton<GameAreaManager>.instance.m_areaCount);
                 return w.EndObj().ToString();
             }, 30000);
+            // The popups appear a moment later on the UI thread: check again and release the freeze they cause.
+            bool wasForcedBefore = false;
+            System.Threading.Thread.Sleep(1500);
+            GameThread.Run<bool>(delegate ()
+            {
+                SimulationManager sim = Singleton<SimulationManager>.instance;
+                if (sim.ForcedSimulationPaused) sim.ForcedSimulationPaused = false;
+                return wasForcedBefore;
+            }, 3000);
             return HttpResponse.Json(200, json);
         }
     }

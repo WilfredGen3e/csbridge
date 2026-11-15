@@ -20,17 +20,22 @@ namespace CSBridge
             return new JsonWriter().Obj()
                 .Prop("ok", true)
                 .Prop("paused", sim.SimulationPaused)
+                .Prop("forced_paused", sim.ForcedSimulationPaused)
                 .Prop("speed", sim.SelectedSimulationSpeed)
                 .EndObj().ToString();
         }
 
-        // POST /pause  {"paused": true|false}
+        // POST /pause  {"paused": true|false, "force": true}
+        // force=true also clears the "forced" pause that game dialogs/menus set (see forced_paused in /stats).
         private static HttpResponse Pause(HttpRequest req)
         {
-            bool paused = JsonReader.GetBool(JsonReader.ParseFlat(req.Body), "paused");
+            Dictionary<string, string> body = JsonReader.ParseFlat(req.Body);
+            bool paused = JsonReader.GetBool(body, "paused");
+            bool force = body.ContainsKey("force") && JsonReader.GetBool(body, "force");
             string json = GameThread.Run<string>(delegate ()
             {
                 Singleton<SimulationManager>.instance.SimulationPaused = paused;
+                if (force && !paused) Singleton<SimulationManager>.instance.ForcedSimulationPaused = false;
                 return SimState();
             }, 3000);
             return HttpResponse.Json(200, json);

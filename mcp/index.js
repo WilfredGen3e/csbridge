@@ -90,7 +90,7 @@ postTool(
   server,
   "set_paused",
   "Pause or unpause the game. Returns the new paused state and speed.",
-  { paused: z.boolean().describe("true to pause, false to resume") },
+  { paused: z.boolean().describe("true to pause, false to resume"), force: z.boolean().optional().describe("Also clear the forced pause set by game dialogs (check forced_paused in get_stats)") },
   "/pause"
 );
 postTool(

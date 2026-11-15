@@ -19,7 +19,9 @@ Een Cities: Skylines MCP-server: de Claude-app (lokaal) kan CS1 op macOS uitleze
 `scripts/restart-game.sh` bouwt, sluit het spel af en start het opnieuw. Start: binaire `Cities` direct met `SteamAppId=255710` en `--continuelastsave` (laadt de laatste save, geen launcher of klik nodig); het script pollt /ping en is klaar na ca. 50 s. Plain `open Cities.app` faalt (zie LESSONS). Let op: de herstart gooit niet-opgeslagen voortgang weg.
 
 ## Status
-- Mod laadt in het spel (bevestigd). Fase 1 klaar en getest (/ping, /stats; geld is oneindig bij Stefan, dus money = long.Max/100). MCP-server draait in de Claude-app. Fase 2: /demand en /budget gebouwd en werkend (waarden nog te vergelijken met het budgetpaneel); Fase 2 compleet: ook /services, /traffic, /problems werken (District-getters van het spel, VehicleManager.m_lastTrafficFlow, Building.m_problems). Fase 3 gestart: POST /pause en /speed werken (JsonReader.cs voor flat JSON-bodies, ApiException voor 4xx). Volgende: /taxes, /budget, daarna /building/place.
+- Fase 1-3 klaar (ping, stats, demand, budget, services, traffic, problems, pause, speed, taxes, budget-set).
+- Fase 4 (bouwen) getest in het echte spel: GET /prefabs, /map, /terrain, /areas, /progress; POST /building/place|bulldoze, /road/build|upgrade|bulldoze, /zone, /areas/unlock, /unlock. Zones groeien (bevolking steeg), stroom/water via build_road met Power Line / Water Pipe. Alles heeft een MCP-tool.
+- Testen: `scripts/restart-game.sh` herlaadt de laatste save (testwijzigingen zijn dus weg tenzij het spel opslaat). Nog te doen: districten, beleid (policies), openbaar vervoer-lijnen, camera/screenshot, tunnel/brug-hoogtes testen, README bijwerken.
 - ILSpy: `dotnet tool install ilspycmd --tool-path <dir>`; draaien met `DOTNET_ROOT=/opt/homebrew/Cellar/dotnet/<ver>/libexec`. Controleer spel-API altijd in de decompilatie.
 
 Zie `docs/LESSONS.md` voor valkuilen (lees voor nieuwe functionaliteit).

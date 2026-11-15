@@ -34,3 +34,15 @@
 - **Wat:** `open Cities.app` start en sluit direct af; Player.log: `PlatformServiceNotRunningException: Platform service is not running (Steam-Steam)`, ook zonder argumenten. Eerder (zie boven) werkte dit wel.
 - **Fix:** binaire direct draaien met `SteamAppId=255710 SteamGameId=255710 ./Cities --continuelastsave` (in `Cities.app/Contents/MacOS`). Steam initialiseert dan zonder launcher en de laatste save laadt vanzelf. Getest: `scripts/restart-game.sh` is volledig automatisch (~50 s).
 - Niet gelukt: via `steam://rungameid` (opent de Paradox Launcher, wil een klik op Resume; `--continuelastsave` meegeven helpt daar niet) en klikken via osascript (terminal heeft geen Toegankelijkheid-rechten).
+
+## /unlock opent popups die de simulatie vastzetten
+- **Wat:** na `UnlockAllProgressionMilestones` e.d. staat `SimulationManager.ForcedSimulationPaused` op true (UI-venster); de klok staat stil ook al is `paused:false` en speed 3. Zonder uitlezing van `forced_paused` lijkt het alsof er niets groeit.
+- **Fix:** `/stats` en `/pause` tonen `forced_paused`; `/unlock` wacht 1,5 s en zet de forced pause terug; `/pause {"paused":false,"force":true}` doet hetzelfde. Het venster zelf blijft zichtbaar tot iemand het sluit.
+
+## Kaartgrenzen en bouwen
+- Bouwbaar gebied is 5x5 tegels van 1920 m: x en z lopen van -4800 tot 4800 (niet 8640). Alleen ontgrendelde tegels zijn bebouwbaar (`OutOfArea` anders; zie `/areas`).
+- Gebouwen aan een weg (`PlacementMode.Roadside`) snappen via `BuildingTool.FindClosestZone` (private, via reflectie) naar zoneblokken binnen 8 m; zonder weg weigert `/building/place`.
+- Wegen via `NetTool.CreateNode` (statisch): `test:true` eerst, dan `test:false`; het spel splitst lange wegen zelf. Beginpunt van een stroomlijn niet in de footprint van een gebouw leggen (`ObjectCollision`).
+- Zonecellen bestaan alleen naast wegen (max 4 diep); `ZoneBlock.SetZone` + `RefreshZoning(blockId)`.
+- zsh splitst `$p` niet in woorden: gebruik `${=p}`.
+- MCP `postTool`/`getTool` nemen `server` als eerste argument (de oude signatuur klopte niet met de aanroepen).

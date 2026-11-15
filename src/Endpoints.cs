@@ -44,6 +44,8 @@ namespace CSBridge
                     .Prop("money", money)
                     .Prop("game_time", sim.m_currentGameTime.ToString("yyyy-MM-dd HH:mm"))
                     .Prop("paused", sim.SimulationPaused)
+                    .Prop("forced_paused", sim.ForcedSimulationPaused)
+                    .Prop("frame", (long)sim.m_currentFrameIndex)
                     .Prop("speed", sim.SelectedSimulationSpeed)
                     .EndObj().ToString();
             }, 3000);
