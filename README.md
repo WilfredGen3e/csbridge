@@ -12,8 +12,9 @@ Two parts:
 
 | Area | Tools |
 |---|---|
-| **Look** | `get_map` (roads, buildings, zones in an area), `get_terrain`, `screenshot` (returns the image), `get_camera` / `set_camera`, `get_views` / `set_view` (traffic, electricity, ... overlays), `set_time` |
-| **Read the city** | `get_stats`, `get_demand`, `get_budget`, `get_services`, `get_traffic`, `get_problems`, `get_progress` |
+| **Look** | `get_playbook`, `get_weather` / `set_weather`, `get_map` (roads, buildings, zones in an area), `get_terrain`, `screenshot` (returns the image), `get_camera` / `set_camera`, `get_views` / `set_view` (traffic, electricity, ... overlays), `set_time` |
+| **Read the city** | `get_stats`, `get_demand`, `get_budget`, `get_services`, `get_traffic`, `get_problems`, `get_progress`, `get_building` (one building in detail) |
+| **Diagnose** | `check_networks` (are roads/pipes/power one connected piece, is the road net connected to the highway), `get_vehicles`, `follow` (camera follows a vehicle or building) |
 | **Build** | `list_prefabs`, `place_building`, `bulldoze_building`, `build_road` (roads, rails, pipes, power lines; snaps to junctions; per-point elevation `x,z,e` for bridges and tunnels), `upgrade_road`, `bulldoze_road` |
 | **Zones & land** | `zone` (paint/clear), `get_areas`, `unlock_area` |
 | **Manage** | `set_taxes`, `set_service_budget`, `get_policies` / `set_policy`, districts (`create_district`, `paint_district`, `delete_district`, `get_districts`) |
@@ -70,7 +71,7 @@ Logs: `bridge.log` in the mod folder. Pitfalls found while building this are in 
 
 ## Notes and limits
 - `unlock` uses the same calls as the game's developer UI (all milestones at once). It is meant for sandbox play; I have not checked how it interacts with achievements.
-- Metro and tram lines are implemented but untested. Park/airport policies are not supported. Weather and following vehicles are not implemented.
+- Metro works above ground (`Overground Metro Station 01` + `Metro Track Ground 01`, tested: a train runs); underground metro and trams are untested (no tram prefabs in the tested install). Park and airport policies are not supported.
 - Bus/tram stops are placed in the middle of the nearest road segment (as the game's own tool does). Vehicles only start running after a few game days.
 - Popups: the mod closes tutorial and milestone windows by itself (a fixed list, never your menus); switch off with `set_auto_dismiss`.
 - Game state is only touched on the simulation thread (`SimulationManager.AddAction`); UI and camera calls go through the main-thread dispatcher.

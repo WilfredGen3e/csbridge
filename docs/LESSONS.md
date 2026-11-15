@@ -92,3 +92,10 @@
 - Woningvraag (`ZoneManager.CalculateResidentialDemand`) zakt als er veel lege woningen zijn; instroom is een vast tempo (~40-60 per minuut op snelheid 3), ook met genoeg huizen. Meer industrie en banen helpen; `POST /demand/full` zet de ontwikkelaarsoptie "Full Demand" aan als de vraag vastloopt.
 - Spreid niet: grote lege blokken met huizen alleen langs de weg geven een kaal raster. Bouw een compacte wijk (blokken ~96x112 m), industrie apart, handel/kantoor als buffer (zie de Beginner's guide op de Paradox-wiki).
 
+## Diagnose, weer, camera volgen, metro
+- `/networks` = union-find over `NetSegment.m_startNode/m_endNode` per service (Road zonder `TransportLineAI`, Water, Electricity). Eén component per soort = gezond; voor wegen moet de component een `Highway` bevatten (anders komt niemand). Dit had me vandaag uren handwerk bespaard.
+- Weer: `WeatherManager.m_targetRain/Fog/Cloud/Temperature`; het weer draait alleen als `m_enableWeather` of `m_forceWeatherOn > 0` (die loopt per simstap 0.001 af, dus 100000 zetten).
+- Camera volgen: `CameraController.SetTarget(InstanceID, Vector3.zero, true)` op de hoofdthread; `ClearTarget()` stopt het.
+- Werknemers van een gebouw: `CitizenUnit` met flag `Work` in `m_citizenUnits`; arbeidsplaatsen via `PrivateBuildingAI.CalculateWorkplaceCount`.
+- Metro bovengronds werkt: `Overground Metro Station 01` (roadside, 16x4), sporen `Metro Track Ground 01` tussen de stationssporen (eindknopen snappen), daarna `create_transport_line type=Metro`; na een paar spel-dagen rijdt er een trein. Tram-prefabs ontbreken in deze installatie.
+
