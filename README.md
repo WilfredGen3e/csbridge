@@ -6,7 +6,7 @@ Two parts:
 1. **Mod** (C#, runs inside the game): reads game state and executes actions, exposed as a local HTTP API on `127.0.0.1:8080`.
 2. **MCP server** (`mcp/`, Node, planned): translates MCP tools to calls on that HTTP API. The Claude app starts it from its config.
 
-> Status: early. Phase 1 (`/ping`, `/stats`) in progress. MCP server not built yet.
+> Status: early. Phase 1 done (`/ping`, `/stats`); MCP server has `ping` and `get_stats`.
 
 ## Install (mod)
 The macOS game cannot compile mod source itself, so a prebuilt `CSBridge.dll` is used.
@@ -28,6 +28,19 @@ The game's DLLs are only referenced while building, never redistributed.
     curl http://127.0.0.1:8080/stats
 
 Logs: `bridge.log` in this folder.
+
+## Install (MCP server, Claude desktop app)
+    cd mcp && npm install
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (use your own path) and restart the Claude app:
+
+    {
+      "mcpServers": {
+        "csbridge": { "command": "node", "args": ["/Users/YOU/Git/CSBridge/mcp/index.js"] }
+      }
+    }
+
+Optional env var `CSBRIDGE_URL` (default `http://127.0.0.1:8080`). Start the game and load a city first.
 
 ## Security
 Loopback only. Requests with a non-loopback `Host` or any `Origin` header (i.e. from a browser page) are rejected.
