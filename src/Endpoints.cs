@@ -14,6 +14,8 @@ namespace CSBridge
             EconomyEndpoints.Register(server);
             CityEndpoints.Register(server);
             ActionEndpoints.Register(server);
+            BuildEndpoints.Register(server);
+            MapEndpoints.Register(server);
         }
 
         private static HttpResponse Ping(HttpRequest req)
