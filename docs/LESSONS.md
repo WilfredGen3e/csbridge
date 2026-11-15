@@ -29,3 +29,7 @@
 ## Spel starten via Steam opent de Paradox Launcher
 - `open steam://rungameid/255710` start de Paradox Launcher, die een handmatige klik op Play wil. Fix: `open .../Cities_Skylines/Cities.app` direct; werkt (Steam draait al) en laadt de mods uit Addons/Mods gewoon.
 - Spel afsluiten: `osascript -e 'tell application "Cities" to quit'`, procesnaam is `Cities`.
+
+## Directe start van Cities.app werkt niet meer (nov 2026)
+- **Wat:** `open Cities.app` start en sluit direct af; Player.log: `PlatformServiceNotRunningException: Platform service is not running (Steam-Steam)`, ook zonder argumenten. Eerder (zie boven) werkte dit wel.
+- **Fix:** starten via `steam://rungameid/255710`; de Paradox Launcher opent en wil een klik op Resume (laadt de laatste save). `--continuelastsave` staat wel in de launcher, maar de launcher start het spel zelf, dus meegeven helpt niet.

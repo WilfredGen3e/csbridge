@@ -17,8 +17,14 @@ if pgrep -x Cities >/dev/null; then
 fi
 
 if [[ "$1" != "--no-launch" ]]; then
-  # Start the app directly: going through steam://rungameid opens the Paradox Launcher, which needs a manual click on Play.
-  echo "==> Starting game"
-  open "$HOME/Library/Application Support/Steam/steamapps/common/Cities_Skylines/Cities.app"
-  echo "Load a city; the API starts then (http://127.0.0.1:8080/ping)."
+  # Direct start of Cities.app fails now ("Platform service is not running"): the game needs the Paradox Launcher.
+  # Launch via Steam; the launcher then needs a click on Resume (loads the last save).
+  echo "==> Starting game via Steam -> click Resume in the Paradox Launcher"
+  open "steam://rungameid/255710"
+  echo "==> Waiting for API (last save loads automatically)"
+  for i in {1..120}; do
+    curl -s -m 2 http://127.0.0.1:8080/ping >/dev/null && { echo "API up."; exit 0; }
+    sleep 2
+  done
+  echo "API did not respond after 4 min; check the game / ~/Library/Logs/Unity/Player.log"; exit 1
 fi
