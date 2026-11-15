@@ -9,10 +9,25 @@ namespace CSBridge
 
         public void OnEnabled()
         {
-            BridgeLog.Init(null);
+            BridgeLog.Init(FindModFolder());
             // Keep simulating when the game window is not the active app (e.g. on another desktop/Space).
             UnityEngine.Application.runInBackground = true;
             BridgeLog.Info("CSBridge " + Endpoints.Version + " enabled");
+        }
+
+        /// <summary>The folder of this mod, as the game's plugin manager knows it (null if not found).</summary>
+        private static string FindModFolder()
+        {
+            try
+            {
+                foreach (ColossalFramework.Plugins.PluginManager.PluginInfo pi in ColossalFramework.Plugins.PluginManager.instance.GetPluginsInfo())
+                {
+                    foreach (IUserMod mod in pi.GetInstances<IUserMod>())
+                        if (mod is BridgeMod) return pi.modPath;
+                }
+            }
+            catch (System.Exception) { }
+            return null;
         }
 
         public void OnDisabled()

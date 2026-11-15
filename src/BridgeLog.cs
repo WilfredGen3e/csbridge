@@ -12,9 +12,10 @@ namespace CSBridge
         {
             if (string.IsNullOrEmpty(modFolder))
             {
-                modFolder = Path.Combine(
-                    Environment.GetEnvironmentVariable("HOME") ?? "",
-                    "Git/CSBridge");
+                // Log next to CSBridge.dll (the mod folder); fall back to the temp folder.
+                try { modFolder = Path.GetDirectoryName(typeof(BridgeLog).Assembly.Location); }
+                catch (Exception) { modFolder = null; }
+                if (string.IsNullOrEmpty(modFolder)) modFolder = Path.GetTempPath();
             }
             path = Path.Combine(modFolder, "bridge.log");
         }
