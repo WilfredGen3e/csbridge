@@ -16,6 +16,9 @@ namespace CSBridge
             ActionEndpoints.Register(server);
             BuildEndpoints.Register(server);
             MapEndpoints.Register(server);
+            RoadEndpoints.Register(server);
+            ZoneEndpoints.Register(server);
+            UnlockEndpoints.Register(server);
         }
 
         private static HttpResponse Ping(HttpRequest req)

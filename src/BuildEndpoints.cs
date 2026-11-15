@@ -60,11 +60,11 @@ namespace CSBridge
             return v;
         }
 
-        /// <summary>The playable map is 17.28 km wide: coordinates run from -8640 to 8640.</summary>
+        /// <summary>The buildable map is 5x5 tiles of 1920 m: coordinates run from -4800 to 4800.</summary>
         public static void CheckBounds(float x, float z)
         {
-            if (Math.Abs(x) > 8640f || Math.Abs(z) > 8640f)
-                throw new ApiException(400, "Position outside the map (x and z must be within -8640..8640)");
+            if (Math.Abs(x) > 4800f || Math.Abs(z) > 4800f)
+                throw new ApiException(400, "Position outside the map (x and z must be within -4800..4800)");
         }
 
         // ---- prefabs -------------------------------------------------------------------
@@ -103,7 +103,7 @@ namespace CSBridge
             throw new ApiException(404, "No road prefab '" + name + "'. Use /prefabs?kind=road&filter=...");
         }
 
-        private static bool IsUnlocked(MilestoneInfo m)
+        public static bool IsUnlocked(MilestoneInfo m)
         {
             return m == null || Singleton<UnlockManager>.instance.Unlocked(m);
         }
