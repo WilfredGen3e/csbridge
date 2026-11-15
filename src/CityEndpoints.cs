@@ -55,7 +55,7 @@ namespace CSBridge
                 w.ObjIn("health")
                     .Prop("heal_capacity", d.GetHealCapacity())
                     .Prop("sick", d.GetSickCount())
-                    .Prop("dead_waiting", d.GetDeadAmount())
+                    .Prop("dead_stored", d.GetDeadAmount())
                     .Prop("deathcare_capacity", d.GetDeadCapacity())
                     .Prop("cremate_capacity", d.GetCremateCapacity())
                     .EndObj();
