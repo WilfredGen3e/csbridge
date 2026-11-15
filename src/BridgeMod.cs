@@ -10,6 +10,8 @@ namespace CSBridge
         public void OnEnabled()
         {
             BridgeLog.Init(null);
+            // Keep simulating when the game window is not the active app (e.g. on another desktop/Space).
+            UnityEngine.Application.runInBackground = true;
             BridgeLog.Info("CSBridge " + Endpoints.Version + " enabled");
         }
 
