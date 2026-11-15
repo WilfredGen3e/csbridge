@@ -218,4 +218,7 @@ postTool(
   "/unlock"
 );
 
+tool(server, "get_ui", "List the popup windows currently open in the game UI (name, size). A tutorial or milestone popup can freeze the game; close it with close_ui.", "/ui");
+postTool(server, "close_ui", "Close an open popup window by name (from get_ui), e.g. GenericTutorialHelper.", { name: z.string() }, "/ui/close");
+
 await server.connect(new StdioServerTransport());

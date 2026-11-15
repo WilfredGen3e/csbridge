@@ -24,7 +24,10 @@ if [[ "$1" != "--no-launch" ]]; then
     SteamAppId=255710 SteamGameId=255710 nohup ./Cities --continuelastsave >/dev/null 2>&1 &)
   echo "==> Waiting for API (last save loads automatically)"
   for i in {1..120}; do
-    curl -s -m 2 http://127.0.0.1:8080/ping >/dev/null && { echo "API up."; exit 0; }
+    curl -s -m 2 http://127.0.0.1:8080/ping >/dev/null && {
+      # The game opens a tutorial popup after loading; close it so nothing blocks the simulation.
+      sleep 3; curl -s -m 5 -X POST -d '{"name":"GenericTutorialHelper"}' http://127.0.0.1:8080/ui/close >/dev/null 2>&1 || true
+      echo "API up."; exit 0; }
     sleep 2
   done
   echo "API did not respond after 4 min; check the game / ~/Library/Logs/Unity/Player.log"; exit 1

@@ -46,3 +46,7 @@
 - Zonecellen bestaan alleen naast wegen (max 4 diep); `ZoneBlock.SetZone` + `RefreshZoning(blockId)`.
 - zsh splitst `$p` niet in woorden: gebruik `${=p}`.
 - MCP `postTool`/`getTool` nemen `server` als eerste argument (de oude signatuur klopte niet met de aanroepen).
+
+## Popups blokkeren het spel; sluiten vanuit de mod
+- Na het laden staat `GenericTutorialHelper` open; popups kunnen `ForcedSimulationPaused` zetten. Klikken/toetsen sturen vanuit de terminal lukt niet (geen Toegankelijkheid- of schermopname-rechten; `CGEvent` wordt genegeerd).
+- Fix: `GET /ui` en `POST /ui/close {"name":...}` (UI-code via `ThreadHelper.dispatcher`, de Unity-hoofdthread; niet via `SimulationManager.AddAction`). `restart-game.sh` sluit de tutorial automatisch.
