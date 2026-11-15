@@ -14,13 +14,16 @@ Two parts:
 |---|---|
 | **Look** | `get_map` (roads, buildings, zones in an area), `get_terrain`, `screenshot` (returns the image), `get_camera` / `set_camera`, `get_views` / `set_view` (traffic, electricity, ... overlays), `set_time` |
 | **Read the city** | `get_stats`, `get_demand`, `get_budget`, `get_services`, `get_traffic`, `get_problems`, `get_progress` |
-| **Build** | `list_prefabs`, `place_building`, `bulldoze_building`, `build_road` (roads, rails, pipes, power lines; snaps to junctions), `upgrade_road`, `bulldoze_road` |
+| **Build** | `list_prefabs`, `place_building`, `bulldoze_building`, `build_road` (roads, rails, pipes, power lines; snaps to junctions; per-point elevation `x,z,e` for bridges and tunnels), `upgrade_road`, `bulldoze_road` |
 | **Zones & land** | `zone` (paint/clear), `get_areas`, `unlock_area` |
 | **Manage** | `set_taxes`, `set_service_budget`, `get_policies` / `set_policy`, districts (`create_district`, `paint_district`, `delete_district`, `get_districts`) |
 | **Transport** | `create_transport_line` (bus/tram/trolleybus on roads; train/metro/ship/air between stations), `get_transport_lines`, `set_transport_line`, `delete_transport_line` |
-| **Game** | `set_paused`, `set_speed`, `unlock` (milestones, monuments, map tiles), `get_ui` / `close_ui` |
+| **Game** | `set_paused`, `set_speed`, `unlock` (milestones, monuments, map tiles), `set_full_demand`, `get_ui` / `close_ui` / `set_auto_dismiss` |
+| **Saves** | `get_saves`, `save_game` (never overwrites unless asked), `load_save` |
 
 Coordinates are metres; the buildable map runs from -4800 to 4800 on x and z. Buildings and roads go through the game's own placement code (collision, slope, water, cost, unlocks), so invalid placements are refused with the game's error.
+
+The server sends `mcp/PLAYBOOK.md` to the client as instructions (also the `get_playbook` tool): order of work, city-design rules from the Paradox beginner's guide, how to lay pipes/power/bridges, how to diagnose problems. Edit that file to change how the AI plays.
 
 A typical session: `list_prefabs` → `build_road` → `zone` → `place_building` (power, water, services) → `set_speed 3` → `screenshot` → adjust.
 
@@ -69,6 +72,7 @@ Logs: `bridge.log` in the mod folder. Pitfalls found while building this are in 
 - `unlock` uses the same calls as the game's developer UI (all milestones at once). It is meant for sandbox play; I have not checked how it interacts with achievements.
 - Metro and tram lines are implemented but untested. Park/airport policies are not supported. Weather and following vehicles are not implemented.
 - Bus/tram stops are placed in the middle of the nearest road segment (as the game's own tool does). Vehicles only start running after a few game days.
+- Popups: the mod closes tutorial and milestone windows by itself (a fixed list, never your menus); switch off with `set_auto_dismiss`.
 - Game state is only touched on the simulation thread (`SimulationManager.AddAction`); UI and camera calls go through the main-thread dispatcher.
 
 ## Security

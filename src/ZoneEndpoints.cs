@@ -13,6 +13,20 @@ namespace CSBridge
             server.Post("/zone", Zone);
             server.Get("/areas", Areas);
             server.Post("/areas/unlock", UnlockArea);
+            server.Post("/demand/full", FullDemand);
+        }
+
+        // POST /demand/full {"enabled": true|false}: the game's own developer switch "Full Demand" (ZoneManager.m_fullDemand).
+        // Residential, commercial and workplace demand are held at 100, so zoned land fills up regardless of the normal balance.
+        private static HttpResponse FullDemand(HttpRequest req)
+        {
+            bool enabled = JsonReader.GetBool(JsonReader.ParseFlat(req.Body), "enabled");
+            string json = GameThread.Run<string>(delegate ()
+            {
+                Singleton<ZoneManager>.instance.m_fullDemand = enabled;
+                return new JsonWriter().Obj().Prop("ok", true).Prop("full_demand", enabled).EndObj().ToString();
+            }, 5000);
+            return HttpResponse.Json(200, json);
         }
 
         private static readonly string[] ZoneNames = new string[] {

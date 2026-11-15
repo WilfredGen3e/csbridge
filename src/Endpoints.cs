@@ -23,6 +23,7 @@ namespace CSBridge
             DistrictEndpoints.Register(server);
             CameraEndpoints.Register(server);
             TransportEndpoints.Register(server);
+            SaveEndpoints.Register(server);
         }
 
         private static HttpResponse Ping(HttpRequest req)

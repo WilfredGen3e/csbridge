@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using ColossalFramework;
 using ColossalFramework.Threading;
 using ColossalFramework.UI;
 using UnityEngine;
@@ -17,6 +18,77 @@ namespace CSBridge
         {
             server.Get("/ui", ListPanels);
             server.Post("/ui/close", Close);
+            server.Post("/ui/autodismiss", SetAutoDismiss);
+        }
+
+        // ---- automatic dismissal of popups/notifications ("new zone available", milestones, tutorials) ----
+        // Every 1.5 s the mod hides any top-level panel that was not visible when the city finished loading, plus a few
+        // known popups. Switch off with POST /ui/autodismiss {"enabled":false} if you want to play by hand.
+        private static Timer watcher;
+        private static bool autoEnabled = true;
+        private static HashSet<string> baseline;
+        private static readonly Dictionary<string, int> dismissed = new Dictionary<string, int>();
+        private static readonly object watchLock = new object();
+        private static readonly string[] AlwaysDismiss = new string[] { "GenericTutorialHelper", "(Library) TutorialPanel", "UnlockingPanel" };
+
+        public static void StartWatcher()
+        {
+            StopWatcher();
+            lock (watchLock) { baseline = null; }
+            watcher = new Timer(delegate (object o)
+            {
+                if (!autoEnabled) return;
+                try { ThreadHelper.dispatcher.Dispatch(DismissNow); } catch (Exception) { }
+            }, null, 4000, 1500);
+        }
+
+        public static void StopWatcher()
+        {
+            if (watcher != null) { watcher.Dispose(); watcher = null; }
+        }
+
+        private static void DismissNow()
+        {
+            try
+            {
+                UIView view = UIView.GetAView();
+                if (view == null) return;
+                List<UIPanel> visible = new List<UIPanel>();
+                foreach (UIPanel p in view.GetComponentsInChildren<UIPanel>())
+                {
+                    if (p == null || !p.isVisible || p.name == null) continue;
+                    if (Depth(p) > 3 || p.width < 100f || p.height < 40f) continue;
+                    visible.Add(p);
+                }
+                int closed = 0;
+                foreach (UIPanel p in visible)
+                {
+                    // Only known popups: never panels the player opens (pause menu, options, save/load, info panels).
+                    if (Array.IndexOf(AlwaysDismiss, p.name) < 0) continue;
+                    if (UIView.HasModalInput() && UIView.GetModalComponent() == p) UIView.PopModal();
+                    p.Hide();
+                    closed++;
+                    lock (watchLock)
+                    {
+                        int c; dismissed.TryGetValue(p.name, out c); dismissed[p.name] = c + 1;
+                    }
+                    BridgeLog.Info("Auto-dismissed panel '" + p.name + "' (" + (int)p.width + "x" + (int)p.height + ")");
+                }
+                if (closed > 0)
+                {
+                    SimulationManager sim = Singleton<SimulationManager>.instance;
+                    // Freezes caused by those popups are released from the simulation thread.
+                    sim.AddAction(delegate () { if (sim.ForcedSimulationPaused) sim.ForcedSimulationPaused = false; });
+                }
+            }
+            catch (Exception ex) { BridgeLog.Error("auto-dismiss", ex); }
+        }
+
+        // POST /ui/autodismiss {"enabled": true|false}
+        private static HttpResponse SetAutoDismiss(HttpRequest req)
+        {
+            autoEnabled = JsonReader.GetBool(JsonReader.ParseFlat(req.Body), "enabled");
+            return HttpResponse.Json(200, new JsonWriter().Obj().Prop("ok", true).Prop("auto_dismiss", autoEnabled).EndObj().ToString());
         }
 
         private static T OnMainThread<T>(Func<T> f, int timeoutMs)
@@ -64,7 +136,11 @@ namespace CSBridge
         {
             string json = OnMainThread<string>(delegate ()
             {
-                JsonWriter w = new JsonWriter().Obj().ArrIn("panels");
+                JsonWriter w = new JsonWriter().Obj().Prop("auto_dismiss", autoEnabled);
+                w.ObjIn("auto_dismissed");
+                lock (watchLock) { foreach (KeyValuePair<string, int> kv in dismissed) w.Prop(kv.Key, kv.Value); }
+                w.EndObj();
+                w.ArrIn("panels");
                 foreach (UIPanel p in VisibleTopPanels())
                     w.Obj().Prop("name", p.name).Prop("depth", Depth(p)).Prop("width", p.width).Prop("height", p.height)
                         .Prop("modal", UIView.HasModalInput() && UIView.GetModalComponent() == p).EndObj();

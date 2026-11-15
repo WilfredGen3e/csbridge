@@ -66,3 +66,29 @@
 - Stationssporen: eindknopen van "Train Station Track" zijn `Untouchable` maar wel aan te sluiten (`CountSegments() == 1`); `build_road` met "Train Track" snapt dan op beide stations.
 - Het spel maakt virtuele netwerken ("Train Line", "Pedestrian Connection Inside", `TransportLineAI`) aan; `/map` verbergt ze standaard (`include_virtual=1` toont ze).
 - Prefabs staan pas als `unlocked` nadat de simulatie een stap heeft gezet na `/unlock` (de milestones worden daar verwerkt), niet meteen.
+
+## Opslaan en laden
+- `/save` gebruikt het eigen `SavePanel` (`SaveGame(name)`, hoofdthread) en wacht tot het bestand klaar is; een bestaande naam wordt geweigerd tenzij `overwrite=true`. Nooit overschrijven wat de speler zelf heeft opgeslagen.
+- `--continuelastsave` kiest de save met de nieuwste tijdstempel *in de metadata* (`SaveHelper.GetLatestSaveGame`), niet de bestandsdatum. Een gekopieerd `.crp` blijft de interne naam van het origineel houden (bv. `mcptest`) en wordt dus nooit "laatste".
+- `/load {name}` doet wat Quick Load doet (`LoadingManager.LoadLevel(meta.assetRef, "Game", "InGame", sim)`), zoekt op de interne assetnaam. De API valt 30-60 s weg; de mod start opnieuw.
+
+## Automatisch popups sluiten mag nooit het pauzemenu raken
+- Eerste versie sloot elk paneel dat bij het laden nog niet zichtbaar was: dat was ook `(Library) PauseMenu`, `Menu` en `ChirperPanel`. Gevolg: zwart scherm bij Esc voor de speler. Fix: alleen een vaste lijst bekende popups (`GenericTutorialHelper`, `(Library) TutorialPanel`, `UnlockingPanel`). `GET /ui` toont `auto_dismissed`-tellers; `POST /ui/autodismiss {enabled}` zet het uit.
+
+## Wegen: bruggen, tunnels, richting
+- Hoogte per punt als `x,z,e` (meter): brug = positieve `e` over water (12 m werkt), tunnel = negatieve (`-12` geeft `Basic Road Slope` + tunnel). Het spel kiest zelf de brug-/tunnelvariant; de uitgangs- en ingangshelling zit in de eerste/laatste segmenten.
+- Begin- en eindrichting van een segment moet de reisrichting `dir` zijn; met een verkeerde richting kloppen de controlepunten niet en krijg je rare bochten of `TooShort`/`SlopeTooSteep`.
+- Stroomlijnpalen kunnen niet op een weg staan (`ObjectCollision`): leg ze 22 m naast de wegas. Een lijn begint dus ook niet op een kruispunt.
+- Segmenten korter dan ~30 m geven `TooShort`; vlak langs een bestaande weg start je met een knoop van die weg.
+
+## Pijpen en stroom: losse eilanden
+- De meeste "het werkt niet"-gevallen waren losse netwerkdelen: controleer met componentenanalyse (knoop-ids uit `/map`) of pijpen, stroomlijnen en wegen één component zijn. Een weg die in het midden van een segment eindigt, maakt geen kruising tenzij hij eindigt op een knoop of er een kruisend stuk overheen ligt.
+- Een waterpomp en uitlaat hebben zelf stroom nodig (anders capaciteit 0, ook al zit de pijp goed); op water kan een Advanced Wind Turbine ernaast.
+- Gebouwknopen (pomp, uitlaat) zijn `Untouchable` met 0 segmenten: `FindSnap` moet die toestaan (`CountSegments() > 1` overslaan). Leg de pijp zo dat hij *op* de knoop eindigt (begint hij erop, dan geeft het spel vaak `ObjectCollision`) en dat het eerste punt op >=25 m ervoor ligt. `WaterNotConnected` verdwijnt pas na een knoopupdate.
+- Pomp stroomopwaarts, uitlaat >=300 m stroomafwaarts (rivier loopt van NO naar ZW); controleer `water.pollution` in `/services`.
+
+## Groei: waarom de bevolking niet komt
+- Nieuwe inwoners komen via de snelweg: zonder wegverbinding met het snelwegnet (zelfde wegcomponent) komt niemand. Controleer dit eerst.
+- Woningvraag (`ZoneManager.CalculateResidentialDemand`) zakt als er veel lege woningen zijn; instroom is een vast tempo (~40-60 per minuut op snelheid 3), ook met genoeg huizen. Meer industrie en banen helpen; `POST /demand/full` zet de ontwikkelaarsoptie "Full Demand" aan als de vraag vastloopt.
+- Spreid niet: grote lege blokken met huizen alleen langs de weg geven een kaal raster. Bouw een compacte wijk (blokken ~96x112 m), industrie apart, handel/kantoor als buffer (zie de Beginner's guide op de Paradox-wiki).
+

@@ -13,7 +13,7 @@ Een Cities: Skylines MCP-server: de Claude-app (lokaal) kan CS1 op macOS uitleze
 ## Structuur
 - `src/` mod-code: BridgeMod.cs (IUserMod + LoadingExtensionBase), HttpServer.cs (TcpListener), Endpoints.cs, GameThread.cs (AddAction + wachten), Json.cs, BridgeLog.cs. `CSBridge.csproj` bouwt de DLL; `Directory.Build.props` legt obj/ buiten de repo (~/.cache/csbridge).
 - `docs/LESSONS.md` valkuilen; lees dit voor je nieuwe functionaliteit begint.
-- `mcp/` Node MCP-server (stdio, @modelcontextprotocol/sdk, ESM). `index.js` heeft tools ping en get_stats; elke nieuwe endpoint = één `tool(...)`-regel. Test zonder Claude-app: JSON-RPC over stdin pipen.
+- `mcp/` Node MCP-server (stdio, @modelcontextprotocol/sdk, ESM). `index.js` heeft tools ping en get_stats; elke nieuwe endpoint = één `tool(...)`-regel. `mcp/PLAYBOOK.md` = speelhandleiding die de server als `instructions` meestuurt (en als tool `get_playbook`); werk die bij als je iets leert over hoe je het spel goed speelt. Test zonder Claude-app: JSON-RPC over stdin pipen.
 
 ## Ontwikkelloop
 `scripts/restart-game.sh` bouwt, sluit het spel af en start het opnieuw. Start: binaire `Cities` direct met `SteamAppId=255710` en `--continuelastsave` (laadt de laatste save, geen launcher of klik nodig); het script pollt /ping en is klaar na ca. 50 s. Plain `open Cities.app` faalt (zie LESSONS). Let op: de herstart gooit niet-opgeslagen voortgang weg.
@@ -22,7 +22,7 @@ Een Cities: Skylines MCP-server: de Claude-app (lokaal) kan CS1 op macOS uitleze
 - Fase 1-3 klaar (ping, stats, demand, budget, services, traffic, problems, pause, speed, taxes, budget-set).
 - Fase 4 (bouwen) getest in het echte spel: GET /prefabs, /map, /terrain, /areas, /progress; POST /building/place|bulldoze, /road/build|upgrade|bulldoze, /zone, /areas/unlock, /unlock. Zones groeien (bevolking steeg), stroom/water via build_road met Power Line / Water Pipe. Alles heeft een MCP-tool.
 - Fase 5: districten (/districts, /district/create|paint|delete) en beleid (/policies, /policy). Fase 6: /camera, /screenshot (PNG, via MCP als afbeelding), /view (info-views), /time, /ui. Zelf kijken: set_camera + screenshot.
-- Testen: `scripts/restart-game.sh` herlaadt de laatste save (testwijzigingen zijn dus weg tenzij het spel opslaat). Fase 7: /transport/types|lines, /transport/line/create|delete|set (bus/tram/trolleybus op wegen; trein/metro/schip/vliegtuig tussen stationsgebouwen; trein getest, metro/tram niet). Nog te doen: metro/tram testen, tunnel/brug-hoogtes testen, weer, README bijwerken.
+- Testen: `scripts/restart-game.sh` herlaadt de laatste save (testwijzigingen zijn dus weg tenzij het spel opslaat). Fase 7: /transport/types|lines, /transport/line/create|delete|set (bus/tram/trolleybus op wegen; trein/metro/schip/vliegtuig tussen stationsgebouwen; trein getest, metro/tram niet). Fase 8: /save, /saves, /load, /demand/full, /ui/autodismiss (met MCP-tools); bruggen/tunnels via `x,z,e` getest; pijp/stroom snapt aan gebouwknopen. Nog te doen: metro/tram testen, weer, MCP in de Claude-app testen.
 - ILSpy: `dotnet tool install ilspycmd --tool-path <dir>`; draaien met `DOTNET_ROOT=/opt/homebrew/Cellar/dotnet/<ver>/libexec`. Controleer spel-API altijd in de decompilatie.
 
 Zie `docs/LESSONS.md` voor valkuilen (lees voor nieuwe functionaliteit).

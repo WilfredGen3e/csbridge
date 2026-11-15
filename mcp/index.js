@@ -32,8 +32,18 @@ function tool(server, name, description, path) {
   });
 }
 
-const server = new McpServer({ name: "csbridge", version: "0.1.0" });
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
+// The playbook (mcp/PLAYBOOK.md) tells the model how to play: order of work, building rules, diagnosing. It is sent to the client as
+// server instructions and is also available as the get_playbook tool, for clients that ignore instructions.
+let PLAYBOOK = "";
+try { PLAYBOOK = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "PLAYBOOK.md"), "utf8"); } catch (e) { PLAYBOOK = "(PLAYBOOK.md not found)"; }
+
+const server = new McpServer({ name: "csbridge", version: "0.1.0" }, { instructions: PLAYBOOK });
+
+server.tool("get_playbook", "How to play Cities: Skylines well with these tools: order of work, city design rules, how to build pipes/power/bridges, how to diagnose problems. Read this before building anything.", {}, async () => ({ content: [{ type: "text", text: PLAYBOOK }] }));
 tool(server, "ping", "Check that the CSBridge mod is running in Cities: Skylines.", "/ping");
 tool(
   server,
@@ -181,6 +191,10 @@ postTool(
   { prefab: z.string().describe("Exact name from list_prefabs"), x: z.number(), z: z.number(), angle: z.number().optional().describe("Degrees (ignored for roadside buildings)") },
   "/building/place"
 );
+postTool(server, "set_full_demand", "Switch the game's developer option \"Full Demand\" on or off: residential, commercial and workplace demand are held at 100 so zoned land fills up. Use it when growth stalls on low demand (sandbox play).", { enabled: z.boolean() }, "/demand/full");
+getTool(server, "get_saves", "List the savegames (name, modified time, size), newest first.", {}, "/saves");
+postTool(server, "save_game", "Save the city under a new name. Refuses an existing name unless overwrite is true (never overwrite the player's own saves). The save becomes the 'last save'.", { name: z.string(), overwrite: z.boolean().optional() }, "/save");
+postTool(server, "load_save", "Load a savegame by name (see get_saves). Drops the current city: save first if you want to keep it. The API is unavailable for about 30-60 s while the city loads.", { name: z.string() }, "/load");
 postTool(server, "bulldoze_building", "Remove a building by id (from get_map).", { id: z.number().int() }, "/building/bulldoze");
 postTool(
   server,
@@ -310,5 +324,6 @@ postTool(
 
 tool(server, "get_ui", "List the popup windows currently open in the game UI (name, size). A tutorial or milestone popup can freeze the game; close it with close_ui.", "/ui");
 postTool(server, "close_ui", "Close an open popup window by name (from get_ui), e.g. GenericTutorialHelper.", { name: z.string() }, "/ui/close");
+postTool(server, "set_auto_dismiss", "Switch the mod's automatic closing of tutorial/milestone popups (GenericTutorialHelper, TutorialPanel, UnlockingPanel) on or off. It never touches menus you open yourself. get_ui shows what was dismissed.", { enabled: z.boolean() }, "/ui/autodismiss");
 
 await server.connect(new StdioServerTransport());

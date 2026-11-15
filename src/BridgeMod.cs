@@ -49,6 +49,7 @@ namespace CSBridge
                 server = new HttpServer();
                 Endpoints.Register(server);
                 server.Start();
+                UiEndpoints.StartWatcher();
             }
             catch (System.Exception ex)
             {
@@ -61,6 +62,7 @@ namespace CSBridge
 
         private static void Stop()
         {
+            UiEndpoints.StopWatcher();
             if (server != null)
             {
                 try { server.Stop(); } catch (System.Exception ex) { BridgeLog.Error("Stop", ex); }

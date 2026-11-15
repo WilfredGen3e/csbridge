@@ -53,8 +53,8 @@ namespace CSBridge
                 NetNode n = nm.m_nodes.m_buffer[i];
                 if ((n.m_flags & NetNode.Flags.Created) == NetNode.Flags.None || n.Info == null) continue;
                 if (n.Info.m_class.m_service != info.m_class.m_service) continue;
-                // Station/building nodes are untouchable, except their free track ends, which you can connect to.
-                if ((n.m_flags & NetNode.Flags.Untouchable) != NetNode.Flags.None && n.CountSegments() != 1) continue;
+                // Station/building nodes are untouchable, except free ends (0 or 1 segments), e.g. station track ends and the pipe connection of water pumps.
+                if ((n.m_flags & NetNode.Flags.Untouchable) != NetNode.Flags.None && n.CountSegments() > 1) continue;
                 float d = Dist2D(n.m_position, p);
                 if (d < bestD) { bestD = d; best.Node = (ushort)i; best.Segment = 0; best.Pos = n.m_position; }
             }
@@ -87,7 +87,7 @@ namespace CSBridge
             return cp;
         }
 
-        private static List<Vector3> ParsePoints(string s)
+        private static List<Vector3> ParsePoints(string s, List<float> elevations, float defaultElevation)
         {
             List<Vector3> pts = new List<Vector3>();
             foreach (string pair in s.Split(';'))
@@ -95,13 +95,15 @@ namespace CSBridge
                 string t = pair.Trim();
                 if (t.Length == 0) continue;
                 string[] xz = t.Split(',');
-                float x, z;
-                if (xz.Length != 2 ||
+                float x, z, e = defaultElevation;
+                if ((xz.Length != 2 && xz.Length != 3) ||
                     !float.TryParse(xz[0].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out x) ||
-                    !float.TryParse(xz[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out z))
-                    throw new ApiException(400, "points must look like \"x,z;x,z;...\"");
+                    !float.TryParse(xz[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out z) ||
+                    (xz.Length == 3 && !float.TryParse(xz[2].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out e)))
+                    throw new ApiException(400, "points must look like \"x,z;x,z;...\" (optionally \"x,z,elevation\")");
                 BuildEndpoints.CheckBounds(x, z);
                 pts.Add(Ground(x, z));
+                elevations.Add(e);
             }
             return pts;
         }
@@ -116,8 +118,10 @@ namespace CSBridge
             string name;
             if (!body.TryGetValue("road", out name) || name.Length == 0) throw new ApiException(400, "Missing field: road");
             List<Vector3> pts;
+            List<float> elevs = new List<float>();
+            float elevation = BuildEndpoints.GetFloat(body, "elevation", 0f);
             string ps;
-            if (body.TryGetValue("points", out ps)) pts = ParsePoints(ps);
+            if (body.TryGetValue("points", out ps)) pts = ParsePoints(ps, elevs, elevation);
             else
             {
                 float x1 = BuildEndpoints.GetFloat(body, "x1"), z1 = BuildEndpoints.GetFloat(body, "z1");
@@ -125,6 +129,7 @@ namespace CSBridge
                 BuildEndpoints.CheckBounds(x1, z1); BuildEndpoints.CheckBounds(x2, z2);
                 pts = new List<Vector3>();
                 pts.Add(Ground(x1, z1)); pts.Add(Ground(x2, z2));
+                elevs.Add(elevation); elevs.Add(elevation);
             }
             if (pts.Count < 2) throw new ApiException(400, "Need at least 2 points");
             if (pts.Count > 64) throw new ApiException(400, "At most 64 points per call");
@@ -146,7 +151,6 @@ namespace CSBridge
                 curve = Ground(BuildEndpoints.GetFloat(body, "cx"), BuildEndpoints.GetFloat(body, "cz")); hasCurve = true;
             }
             if (hasCurve && pts.Count != 2) throw new ApiException(400, "A curve control point only works with exactly 2 points");
-            float elevation = BuildEndpoints.GetFloat(body, "elevation", 0f);
             bool reverse = body.ContainsKey("reverse") && JsonReader.GetBool(body, "reverse");
             float snap = BuildEndpoints.GetFloat(body, "snap", 8f);
             if (snap < 0f || snap > 30f) throw new ApiException(400, "snap must be 0-30");
@@ -167,12 +171,13 @@ namespace CSBridge
                     Vector3 dir = pts[i + 1] - pts[i]; dir.y = 0f;
                     if (dir.sqrMagnitude < 1f) { failure = "segment " + i + ": points are too close together"; break; }
                     dir.Normalize();
-                    NetTool.ControlPoint sp = MakePoint(a, a.Segment != 0 ? a.Dir : dir, elevation);
-                    NetTool.ControlPoint ep = MakePoint(b, b.Segment != 0 ? b.Dir : dir, elevation);
+                    float e1 = elevs[i], e2 = elevs[i + 1];
+                    NetTool.ControlPoint sp = MakePoint(a, dir, e1);
+                    NetTool.ControlPoint ep = MakePoint(b, dir, e2);
                     NetTool.ControlPoint mp = ep;
                     mp.m_node = 0; mp.m_segment = 0;
                     mp.m_position = hasCurve ? curve : (sp.m_position + ep.m_position) * 0.5f;
-                    mp.m_elevation = elevation;
+                    mp.m_elevation = (e1 + e2) * 0.5f;
 
                     ushort node, seg; int cost, prod;
                     ToolBase.ToolErrors err = NetTool.CreateNode(info, sp, mp, ep, NodeBuffer, 1000, true, false, true, true, reverse, false, 0, out node, out seg, out cost, out prod);
