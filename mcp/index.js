@@ -100,5 +100,30 @@ postTool(
   { speed: z.number().int().min(1).max(3).describe("Game speed 1-3") },
   "/speed"
 );
+postTool(
+  server,
+  "set_taxes",
+  "Set tax rates in percent (0-29) for one or more zone types. Applies to all building levels. Returns the resulting rates.",
+  {
+    residential_low: z.number().int().min(0).max(29).optional(),
+    residential_high: z.number().int().min(0).max(29).optional(),
+    commercial_low: z.number().int().min(0).max(29).optional(),
+    commercial_high: z.number().int().min(0).max(29).optional(),
+    industrial: z.number().int().min(0).max(29).optional(),
+    office: z.number().int().min(0).max(29).optional(),
+  },
+  "/taxes"
+);
+postTool(
+  server,
+  "set_service_budget",
+  "Set the budget percentage (50-150) of a public service for day and/or night. Services: Road, Electricity, Water, Garbage, HealthCare, FireDepartment, PoliceDepartment, Education, PublicTransport, Beautification, Monument, Disaster.",
+  {
+    service: z.string().describe("Service name, e.g. Road or HealthCare"),
+    day: z.number().int().min(50).max(150).optional(),
+    night: z.number().int().min(50).max(150).optional(),
+  },
+  "/budget"
+);
 
 await server.connect(new StdioServerTransport());

@@ -23,6 +23,11 @@ Restart the game, enable "CSBridge" in Content Manager > Mods, and load a city.
 Different game location? `dotnet build -p:GameManaged="/path/to/Cities.app/Contents/Resources/Data/Managed"`.
 The game's DLLs are only referenced while building, never redistributed.
 
+## Development loop
+    scripts/restart-game.sh        # build, quit the game, start it again (loses unsaved progress)
+
+Then load a city; the API starts when a city is loaded.
+
 ## Try it
     curl http://127.0.0.1:8080/ping
     curl http://127.0.0.1:8080/stats

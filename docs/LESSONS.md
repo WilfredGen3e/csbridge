@@ -25,3 +25,7 @@
 ## Snelheid zetten zet de pauze uit
 - `SimulationManager.SelectedSimulationSpeed` (setter) zet `m_simulationPaused` op false. Wil je pauzeren op een snelheid: eerst `/speed`, daarna `/pause`. Staat ook in de MCP-tool-beschrijving.
 - Setters van SimulationManager vanaf de simulatiedraad (via AddAction) werken zonder problemen.
+
+## Spel starten via Steam opent de Paradox Launcher
+- `open steam://rungameid/255710` start de Paradox Launcher, die een handmatige klik op Play wil. Fix: `open .../Cities_Skylines/Cities.app` direct; werkt (Steam draait al) en laadt de mods uit Addons/Mods gewoon.
+- Spel afsluiten: `osascript -e 'tell application "Cities" to quit'`, procesnaam is `Cities`.

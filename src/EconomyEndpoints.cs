@@ -9,7 +9,7 @@ namespace CSBridge
             ItemClass.Service.Residential, ItemClass.Service.Commercial,
             ItemClass.Service.Industrial, ItemClass.Service.Office };
 
-        private static readonly ItemClass.Service[] PublicServices = new ItemClass.Service[] {
+        internal static readonly ItemClass.Service[] PublicServices = new ItemClass.Service[] {
             ItemClass.Service.Road, ItemClass.Service.Electricity, ItemClass.Service.Water,
             ItemClass.Service.Garbage, ItemClass.Service.HealthCare, ItemClass.Service.FireDepartment,
             ItemClass.Service.PoliceDepartment, ItemClass.Service.Education, ItemClass.Service.PublicTransport,
@@ -19,6 +19,18 @@ namespace CSBridge
         {
             server.Get("/demand", Demand);
             server.Get("/budget", Budget);
+        }
+
+        internal static void WriteTaxes(JsonWriter w, EconomyManager eco)
+        {
+            w.ObjIn("taxes_percent")
+                .Prop("residential_low", eco.GetTaxRate(ItemClass.Service.Residential, ItemClass.SubService.ResidentialLow, ItemClass.Level.Level1))
+                .Prop("residential_high", eco.GetTaxRate(ItemClass.Service.Residential, ItemClass.SubService.ResidentialHigh, ItemClass.Level.Level1))
+                .Prop("commercial_low", eco.GetTaxRate(ItemClass.Service.Commercial, ItemClass.SubService.CommercialLow, ItemClass.Level.Level1))
+                .Prop("commercial_high", eco.GetTaxRate(ItemClass.Service.Commercial, ItemClass.SubService.CommercialHigh, ItemClass.Level.Level1))
+                .Prop("industrial", eco.GetTaxRate(ItemClass.Service.Industrial, ItemClass.SubService.IndustrialGeneric, ItemClass.Level.Level1))
+                .Prop("office", eco.GetTaxRate(ItemClass.Service.Office, ItemClass.SubService.OfficeGeneric, ItemClass.Level.Level1))
+                .EndObj();
         }
 
         private static HttpResponse Demand(HttpRequest req)
@@ -54,14 +66,7 @@ namespace CSBridge
                     .Prop("policy_expenses", eco.GetPolicyExpenses() / 100)
                     .EndObj();
 
-                w.ObjIn("taxes_percent")
-                    .Prop("residential_low", eco.GetTaxRate(ItemClass.Service.Residential, ItemClass.SubService.ResidentialLow, ItemClass.Level.Level1))
-                    .Prop("residential_high", eco.GetTaxRate(ItemClass.Service.Residential, ItemClass.SubService.ResidentialHigh, ItemClass.Level.Level1))
-                    .Prop("commercial_low", eco.GetTaxRate(ItemClass.Service.Commercial, ItemClass.SubService.CommercialLow, ItemClass.Level.Level1))
-                    .Prop("commercial_high", eco.GetTaxRate(ItemClass.Service.Commercial, ItemClass.SubService.CommercialHigh, ItemClass.Level.Level1))
-                    .Prop("industrial", eco.GetTaxRate(ItemClass.Service.Industrial, ItemClass.SubService.IndustrialGeneric, ItemClass.Level.Level1))
-                    .Prop("office", eco.GetTaxRate(ItemClass.Service.Office, ItemClass.SubService.OfficeGeneric, ItemClass.Level.Level1))
-                    .EndObj();
+                WriteTaxes(w, eco);
 
                 w.ArrIn("services");
                 foreach (ItemClass.Service s in PrivateServices)
