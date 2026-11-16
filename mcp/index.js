@@ -50,9 +50,10 @@ server.tool(
   async () => {
     try {
       const get = async (p) => { try { return JSON.parse(await call(p)); } catch (e) { return { error: e.message }; } };
-      const [stats, demand, services, problems, traffic, road, water, power] = await Promise.all(
-        ["/stats", "/demand", "/services", "/problems", "/traffic", "/networks?kind=road", "/networks?kind=water", "/networks?kind=power"].map(get)
-      );
+      // One after the other: the mod's HTTP server handles one request at a time and drops parallel ones.
+      const results = [];
+      for (const p of ["/stats", "/demand", "/services", "/problems", "/traffic", "/networks?kind=road", "/networks?kind=water", "/networks?kind=power"]) results.push(await get(p));
+      const [stats, demand, services, problems, traffic, road, water, power] = results;
       const net = (n) => (n.error ? n : { components: n.components, connected: n.connected, ...(n.list && n.list[0] && "has_highway" in n.list[0] ? { highway: n.list.some((c) => c.has_highway) } : {}) });
       const probs = {};
       for (const p of problems.problems || []) probs[p.problem] = p.buildings;
@@ -236,13 +237,18 @@ server.tool(
       const first = await call("/load", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: args.name }) });
       if (args.wait === false) return { content: [{ type: "text", text: first }] };
       const t0 = Date.now();
-      await new Promise((r) => setTimeout(r, 5000));
+      // First wait for the old city to go away (the API stops answering while the new one loads), at most 20 s.
+      let wentDown = false;
+      while (!wentDown && Date.now() - t0 < 20000) {
+        await new Promise((r) => setTimeout(r, 1000));
+        try { const pong = await fetch(BASE + "/ping", { signal: AbortSignal.timeout(1500) }); if (!pong.ok) wentDown = true; } catch (e) { wentDown = true; }
+      }
       while (Date.now() - t0 < 240000) {
         try {
           const pong = await fetch(BASE + "/ping", { signal: AbortSignal.timeout(3000) });
           if (pong.ok) {
             const stats = await call("/stats");
-            return { content: [{ type: "text", text: JSON.stringify({ ok: true, loaded: args.name, ready_after_s: Math.round((Date.now() - t0) / 1000), stats: JSON.parse(stats) }) }] };
+            return { content: [{ type: "text", text: JSON.stringify({ ok: true, loaded: args.name, ready_after_s: Math.round((Date.now() - t0) / 1000), api_went_down: wentDown, stats: JSON.parse(stats) }) }] };
           }
         } catch (e) { /* still loading */ }
         await new Promise((r) => setTimeout(r, 2000));
@@ -335,8 +341,8 @@ tool(server, "get_progress", "Current milestone and number of unlocked map tiles
 postTool(
   server,
   "unlock",
-  "Unlock content using the game's developer unlock calls: progression (all milestones: services, zones, policies, buildings), monuments, wonders, areas (buy all buyable map tiles) or all. Needed before building locked things (list_prefabs shows unlocked=false).",
-  { what: z.enum(["progression", "monuments", "wonders", "areas", "all"]) },
+  "Unlock content using the game's developer unlock calls: progression (population milestones), transport (the separate service/feature milestones that progression leaves closed: metro, trains, some services; check list_prefabs unlocked=false / unlock_milestone), monuments, wonders, areas (buy all buyable map tiles) or all. Needed before building locked things (list_prefabs shows unlocked=false).",
+  { what: z.enum(["progression", "transport", "monuments", "wonders", "areas", "all"]) },
   "/unlock"
 );
 
@@ -360,17 +366,29 @@ postTool(server, "delete_district", "Delete a district by id.", { district: z.nu
 getTool(
   server,
   "get_policies",
-  "List policies and whether each is enabled/unlocked, for the whole city (district=0) or one district. type: Services, Taxation, CityPlanning, Special, Specialization, Event.",
-  { district: z.number().int().optional(), type: z.string().optional(), unlocked: z.boolean().optional() },
+  "List policies and whether each is enabled/unlocked, for the whole city (district=0) or one district. type: Services, Taxation, CityPlanning, Special, Specialization, Event, Park. With park=<id> (from get_parks) it lists the policies of that park area.",
+  { district: z.number().int().optional(), park: z.number().int().optional(), type: z.string().optional(), unlocked: z.boolean().optional() },
   "/policies"
 );
 postTool(
   server,
   "set_policy",
-  "Enable or disable a policy (name from get_policies) for the whole city (district omitted or 0) or one district. Policies have upkeep costs.",
-  { policy: z.string(), enabled: z.boolean(), district: z.number().int().optional() },
+  "Enable or disable a policy (name from get_policies) for the whole city (district omitted or 0), one district, or - for park policies such as AnimalEthics, ParkAdvertisement, FireworksBan - one park area (park=<id>). Policies have upkeep costs.",
+  { policy: z.string(), enabled: z.boolean(), district: z.number().int().optional(), park: z.number().int().optional() },
   "/policy"
 );
+
+// ---- park areas (parks, zoo, amusement park, nature reserve, industry and campus areas) ----
+tool(server, "get_parks", "List park areas (id, name, type, level, main gate building, ticket price). Park policies are set per park area with set_policy park=<id>.", "/parks");
+postTool(
+  server,
+  "create_park",
+  "Create a park area and paint it round at x,z (radius 10-1000; add x2,z2 for a line-shaped area). type: Generic, AmusementPark, Zoo, NatureReserve, Industry, Farming, Forestry, Ore, Oil, GenericCampus, TradeSchool, LiberalArts, University, PedestrianZone (airports are not supported). The area gets its level and policies when its Main Gate building stands inside it (place_building, see list_prefabs filter=Gate); attractions are then placed inside. " + COORD,
+  { type: z.string().optional().describe("Default Generic"), name: z.string().optional(), x: z.number(), z: z.number(), radius: z.number().optional().describe("Default 80"), x2: z.number().optional(), z2: z.number().optional() },
+  "/park/create"
+);
+postTool(server, "paint_park", "Extend a park area (round or line-shaped with x2,z2) or erase=true to remove the area from park areas.", { park: z.number().int().optional(), x: z.number(), z: z.number(), radius: z.number().optional(), x2: z.number().optional(), z2: z.number().optional(), erase: z.boolean().optional() }, "/park/paint");
+postTool(server, "delete_park", "Delete a park area by id (its buildings stay).", { park: z.number().int() }, "/park/delete");
 
 // ---- Phase 6: camera, screenshots, views ----
 tool(server, "get_camera", "Camera focus point (x, y, z), size (view distance in metres, smaller = closer), heading and pitch in degrees.", "/camera");

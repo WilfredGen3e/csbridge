@@ -83,6 +83,15 @@ namespace CSBridge
             cp.m_node = s.Node;
             cp.m_segment = s.Segment;
             cp.m_elevation = elevation;
+            // Like the game's own tool: a point snapped to an existing node takes that node's height and elevation
+            // (needed to join underground station tracks, which lie at -12 m, from a point given without elevation).
+            if (s.Node != 0)
+            {
+                NetNode n = Singleton<NetManager>.instance.m_nodes.m_buffer[s.Node];
+                cp.m_elevation = n.m_elevation;
+                if (n.Info != null && n.Info.m_netAI != null && n.Info.m_netAI.IsUnderground()) cp.m_elevation = -cp.m_elevation;
+                cp.m_position = n.m_position;
+            }
             cp.m_direction = dir;
             return cp;
         }

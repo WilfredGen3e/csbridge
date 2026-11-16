@@ -54,7 +54,8 @@ namespace CSBridge
                     TransportInfo info = tm.GetTransportInfo(t);
                     if (info == null) continue;
                     w.Obj().Prop("type", t.ToString()).Prop("street_based", StreetBased(info))
-                        .Prop("unlocked", BuildEndpoints.IsUnlocked(info.GetUnlockMilestone())).Prop("default_ticket_price", info.m_ticketPrice / 100.0).EndObj();
+                        .Prop("unlocked", BuildEndpoints.IsUnlocked(info.GetUnlockMilestone()))
+                        .Prop("unlock_milestone", BuildEndpoints.IsUnlocked(info.GetUnlockMilestone()) ? null : BuildEndpoints.MilestoneName(info.GetUnlockMilestone())).Prop("default_ticket_price", info.m_ticketPrice / 100.0).EndObj();
                 }
                 return w.EndArr().EndObj().ToString();
             }, 5000);

@@ -32,6 +32,25 @@ namespace CSBridge
             }
             catch (Exception) { }
             w.EndArr();
+            // Everything that is still locked outside the progression list (metro, trains, ...) with the reason, to see what to do.
+            w.ArrIn("locked_other");
+            try
+            {
+                foreach (System.Reflection.FieldInfo f in um.m_properties.GetType().GetFields())
+                {
+                    if (f.FieldType != typeof(MilestoneInfo[]) || !f.Name.EndsWith("Milestones") || f.Name.Contains("Achievement") || f.Name == "m_progressionMilestones") continue;
+                    MilestoneInfo[] arr = (MilestoneInfo[])f.GetValue(um.m_properties);
+                    if (arr == null) continue;
+                    for (int i = 0; i < arr.Length; i++)
+                    {
+                        MilestoneInfo m = arr[i];
+                        if (m == null || BuildEndpoints.IsUnlocked(m)) continue;
+                        w.Obj().Prop("list", f.Name).Prop("index", i).Prop("type", m.GetType().Name).Prop("milestone", BuildEndpoints.MilestoneName(m)).EndObj();
+                    }
+                }
+            }
+            catch (Exception) { }
+            w.EndArr();
             return w.EndObj().ToString();
         }
 
@@ -41,7 +60,35 @@ namespace CSBridge
             return HttpResponse.Json(200, GameThread.Run<string>(delegate () { return State(); }, 3000));
         }
 
-        // POST /unlock {"what":"progression|monuments|wonders|areas|all"}
+        // Metro, trains, some services/zones/features have their own milestones that "progression" does not unlock
+        // (they depend on other conditions). Force them open too, except the Steam achievement milestones.
+        private static void ForceUnlockServices(UnlockManager um)
+        {
+            if (um.m_properties == null) return;
+            System.Reflection.BindingFlags nf = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            System.Reflection.MethodInfo impl = typeof(UnlockManager).GetMethod("CheckMilestoneImpl", nf);
+            System.Reflection.MethodInfo checkAll = typeof(UnlockManager).GetMethod("CheckAllMilestones", nf);
+            System.Reflection.FieldInfo checking = typeof(UnlockManager).GetField("m_checkingMilestones", nf);
+            if (impl == null) throw new ApiException(500, "UnlockManager.CheckMilestoneImpl not found in this game version");
+            int count = 0;
+            checking.SetValue(um, true);
+            try
+            {
+                foreach (System.Reflection.FieldInfo f in um.m_properties.GetType().GetFields())
+                {
+                    if (f.FieldType != typeof(MilestoneInfo[]) || !f.Name.EndsWith("Milestones") || f.Name.Contains("Achievement") || f.Name == "m_progressionMilestones") continue;
+                    MilestoneInfo[] arr = (MilestoneInfo[])f.GetValue(um.m_properties);
+                    if (arr == null) continue;
+                    foreach (MilestoneInfo m in arr)
+                        if (m != null) { impl.Invoke(um, new object[] { m, true, false }); count++; }
+                }
+                if (checkAll != null) checkAll.Invoke(um, null);
+            }
+            finally { checking.SetValue(um, false); }
+            BridgeLog.Info("ForceUnlockServices: " + count + " milestones forced");
+        }
+
+        // POST /unlock {"what":"progression|transport|monuments|wonders|areas|all"}
         //   progression: all milestones (services, zones, policies, buildings, map tiles allowed)
         //   monuments / wonders: unique buildings
         //   areas: buy every map tile that can be unlocked (repeats while new tiles become available)
@@ -51,8 +98,8 @@ namespace CSBridge
             string what;
             if (!body.TryGetValue("what", out what)) throw new ApiException(400, "Missing field: what (progression, monuments, wonders, areas, all)");
             what = what.ToLowerInvariant();
-            if (what != "progression" && what != "monuments" && what != "wonders" && what != "areas" && what != "all")
-                throw new ApiException(400, "what must be progression, monuments, wonders, areas or all");
+            if (what != "progression" && what != "monuments" && what != "wonders" && what != "areas" && what != "transport" && what != "all")
+                throw new ApiException(400, "what must be progression, transport, monuments, wonders, areas or all");
 
             string json = GameThread.Run<string>(delegate ()
             {
@@ -61,6 +108,7 @@ namespace CSBridge
                 bool wasForced = sim.ForcedSimulationPaused;
                 bool all = what == "all";
                 if (all || what == "progression") um.UnlockAllProgressionMilestones();
+                if (all || what == "transport") ForceUnlockServices(um);
                 if (all || what == "monuments") um.UnlockAllMonumentMilestones();
                 if (all || what == "wonders") um.UnlockAllWonderMilestones();
                 int tilesBought = 0;

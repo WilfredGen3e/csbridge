@@ -136,18 +136,22 @@ namespace CSBridge
         }
 
         // GET /policies?district=0&type=Services&unlocked=1   (district 0 = city-wide; type: Services, Taxation, CityPlanning, Special, Specialization, Event, Park)
+        // GET /policies?park=3 -> the policies of that park area (see GET /parks)
         private static HttpResponse Policies(HttpRequest req)
         {
             Dictionary<string, string> q = BuildEndpoints.ParseQuery(req.Query);
             int district = BuildEndpoints.GetIntQ(q, "district", 0, 0, 127);
             string type = q.ContainsKey("type") ? q["type"] : null;
             bool onlyUnlocked = q.ContainsKey("unlocked") && q["unlocked"] != "0" && q["unlocked"] != "false";
+            int park = BuildEndpoints.GetIntQ(q, "park", 0, 0, 255);
+            if (park > 0) type = "Park";
             string json = GameThread.Run<string>(delegate ()
             {
                 DistrictManager dm = Singleton<DistrictManager>.instance;
-                if (!Exists(dm, district)) throw new ApiException(404, "No district " + district);
+                if (park > 0 && !ParkEndpoints.Exists(park)) throw new ApiException(404, "No park area " + park + " (see GET /parks)");
+                if (park == 0 && !Exists(dm, district)) throw new ApiException(404, "No district " + district);
                 UnlockManager um = Singleton<UnlockManager>.instance;
-                JsonWriter w = new JsonWriter().Obj().Prop("district", district).ArrIn("policies");
+                JsonWriter w = new JsonWriter().Obj().Prop(park > 0 ? "park" : "district", park > 0 ? park : district).ArrIn("policies");
                 foreach (DistrictPolicies.Policies p in Enum.GetValues(typeof(DistrictPolicies.Policies)))
                 {
                     if (p == DistrictPolicies.Policies.None) continue;
@@ -156,7 +160,7 @@ namespace CSBridge
                     bool unlocked = um.Unlocked(p);
                     if (onlyUnlocked && !unlocked) continue;
                     w.Obj().Prop("name", p.ToString()).Prop("type", t.ToString())
-                        .Prop("enabled", IsSet(dm, p, district)).Prop("unlocked", unlocked).EndObj();
+                        .Prop("enabled", park > 0 ? ParkEndpoints.IsSet(p, park) : IsSet(dm, p, district)).Prop("unlocked", unlocked).EndObj();
                 }
                 return w.EndArr().EndObj().ToString();
             }, 5000);
@@ -172,15 +176,24 @@ namespace CSBridge
             if (!body.ContainsKey("enabled")) throw new ApiException(400, "Missing field: enabled (true/false)");
             bool enabled = JsonReader.GetBool(body, "enabled");
             int district = body.ContainsKey("district") ? JsonReader.GetInt(body, "district", 0, 127) : 0;
+            int park = body.ContainsKey("park") ? JsonReader.GetInt(body, "park", 1, 255) : 0;   // park policies need a park area
             string json = GameThread.Run<string>(delegate ()
             {
                 DistrictManager dm = Singleton<DistrictManager>.instance;
-                if (!Exists(dm, district)) throw new ApiException(404, "No district " + district);
+                if (park > 0 && !ParkEndpoints.Exists(park)) throw new ApiException(404, "No park area " + park + " (see GET /parks)");
+                if (park == 0 && !Exists(dm, district)) throw new ApiException(404, "No district " + district);
                 DistrictPolicies.Policies p = FindPolicy(name);
                 DistrictPolicies.Types t = (DistrictPolicies.Types)((int)p >> 5);
                 if (enabled && !Singleton<UnlockManager>.instance.Unlocked(p))
                     throw new ApiException(409, "Policy " + p + " is not unlocked yet");
-                if (t == DistrictPolicies.Types.Park) throw new ApiException(400, "Park policies need a park area and are not supported yet");
+                if (t == DistrictPolicies.Types.Park && park == 0) throw new ApiException(400, "Park policies need a park area: pass park=<id> (create one with /park/create, list with /parks)");
+                if (t != DistrictPolicies.Types.Park && park > 0) throw new ApiException(400, "Policy " + p + " is not a park policy");
+                if (park > 0)
+                {
+                    if (enabled) dm.SetParkPolicy(p, (byte)park); else dm.UnsetParkPolicy(p, (byte)park);
+                    return new JsonWriter().Obj().Prop("ok", true).Prop("policy", p.ToString()).Prop("park", park)
+                        .Prop("enabled", ParkEndpoints.IsSet(p, park)).EndObj().ToString();
+                }
                 if (enabled) { if (district > 0) dm.SetDistrictPolicy(p, (byte)district); else dm.SetCityPolicy(p); }
                 else { if (district > 0) dm.UnsetDistrictPolicy(p, (byte)district); else dm.UnsetCityPolicy(p); }
                 return new JsonWriter().Obj().Prop("ok", true).Prop("policy", p.ToString()).Prop("district", district)

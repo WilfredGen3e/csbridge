@@ -105,3 +105,19 @@
 - **Waarom:** `NetTool.CreateNode` (test=true) vult de botsmaskers van `ToolController` (privé `m_collidingSegments2`/`m_collidingBuildings2`, bitmasks per id). Niet-belangrijke objecten worden bij het echte bouwen weggehaald, belangrijke geven ObjectCollision.
 - **Fix:** na de testpas de maskers via reflection lezen (`RoadEndpoints.CollidingObjects`) en teruggeven als `removed`/`would_remove` of in de foutmelding. Ook voor `place_building`.
 - **Let op:** `get_map` verbergt nu pijpen/stroomlijnen/paden standaard en geeft compacte arrays; `verbose=true` of `all=true` voor de oude uitvoer.
+
+## Metro/trein "niet vrij te spelen" met unlock
+- **Wat ging mis:** `unlock` liet metro en trein dicht (`Metro Track Ground 01` unlocked=false), `get_progress` toonde `current_milestone: null`.
+- **Waarom:** die zijn geen bevolkingsmijlpalen maar bouwmijlpalen: sporen vragen "Construct any metro station", de metrolijn "Construct Metro Tracks", treinlijn "Pass 2 requirements". Een ManualMilestone/CombinedMilestone laat zich niet forceren.
+- **Fix:** eerst een station-gebouw plaatsen, dan sporen, dan de lijn. `unlock_milestone` in `/prefabs` en `/transport/types` toont de eis; `/progress` toont de bevolkingsmijlpalen.
+
+## MakePoint: direction vergeten = overal TooShort
+- **Wat ging mis:** na een refactor van `MakePoint` gaf elke weg `TooShort`, ook 100 m lange.
+- **Waarom:** `cp.m_direction = dir` was uit de functie gevallen; zonder richting rekent NetTool met een nulvector.
+- **Fix:** richting altijd zetten. Bij snappen op een bestaand knooppunt neemt het punt nu hoogte en elevatie van dat knooppunt over (ondergronds negatief), zoals de eigen NetTool.
+
+## Mod-HTTP-server is single-threaded
+- Parallelle requests (Promise.all in `get_city_summary`) lieten er een deel mislukken met "Cannot reach the mod". Doe MCP-aanroepen naar de mod na elkaar.
+
+## Opslaan van andermans stad
+- `/save` slaat altijd de nu geladen stad op: controleer eerst met `get_stats` dat het jouw stad is (de gebruiker kan zelf een andere stad hebben geladen). Zet `set_full_demand`, `set_guard` e.d. nooit aan in een stad die je niet zelf bouwt.

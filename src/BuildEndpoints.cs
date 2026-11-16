@@ -187,6 +187,7 @@ namespace CSBridge
                             .Prop("one_way", r.m_hasBackwardVehicleLanes != r.m_hasForwardVehicleLanes)
                             .Prop("can_bridge_or_tunnel", minE != maxE)
                             .Prop("unlocked", unlocked)
+                            .Prop("unlock_milestone", unlocked ? null : MilestoneName(r.GetUnlockMilestone()))
                             .EndObj();
                     }
                 }

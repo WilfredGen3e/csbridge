@@ -17,7 +17,7 @@ Two parts:
 | **Diagnose** | `get_city_summary` (one-call overview), `check_networks` (are roads/pipes/power one connected piece, is the road net connected to the highway), `get_vehicles`, `follow` (camera follows a vehicle or building) |
 | **Build** | `list_prefabs`, `place_building`, `bulldoze_building`, `build_road` (dry_run, reports removed objects and what is in the way; roads, rails, pipes, power lines; snaps to junctions; per-point elevation `x,z,e` for bridges and tunnels), `upgrade_road`, `bulldoze_road` |
 | **Zones & land** | `zone` (paint/clear), `get_areas`, `unlock_area` |
-| **Manage** | `set_taxes`, `set_service_budget`, `get_policies` / `set_policy`, districts (`create_district`, `paint_district`, `delete_district`, `get_districts`) |
+| **Manage** | `set_taxes`, `set_service_budget`, `get_policies` / `set_policy`, districts (`create_district`, `paint_district`, `delete_district`, `get_districts`), park areas (`create_park`, `paint_park`, `delete_park`, `get_parks`; park policies via `set_policy park=<id>`) |
 | **Transport** | `create_transport_line` (bus/tram/trolleybus on roads; train/metro/ship/air between stations), `get_transport_lines`, `set_transport_line`, `delete_transport_line` |
 | **Game** | `set_paused`, `set_speed`, `set_guard` / `get_guard` (auto-pause when water/power run short), `build_many` (batch), `unlock` (milestones, monuments, map tiles), `set_full_demand`, `get_ui` / `close_ui` / `set_auto_dismiss` |
 | **Saves** | `get_saves`, `save_game` (never overwrites unless asked), `load_save` |
@@ -71,7 +71,7 @@ Logs: `bridge.log` in the mod folder. Pitfalls found while building this are in 
 
 ## Notes and limits
 - `unlock` uses the same calls as the game's developer UI (all milestones at once). It is meant for sandbox play; I have not checked how it interacts with achievements.
-- Metro works above ground (`Overground Metro Station 01` + `Metro Track Ground 01`, tested: a train runs); underground metro and trams are untested (no tram prefabs in the tested install). Park and airport policies are not supported.
+- Metro works above ground (`Overground Metro Station 01` + `Metro Track Ground 01`, tested: a train runs); underground metro stations can be built (`Metro Station Below Ground Island`) but joining them with tracks failed with SlopeTooSteep and is untested; trams: no prefabs in the tested install. Metro tracks only unlock after you place a metro station building; park areas need the Parklife DLC (not installed in the test setup, so untested); airport areas are not supported.
 - Bus/tram stops are placed in the middle of the nearest road segment (as the game's own tool does). Vehicles only start running after a few game days.
 - Popups: the mod closes tutorial and milestone windows by itself (a fixed list, never your menus); switch off with `set_auto_dismiss`.
 - Game state is only touched on the simulation thread (`SimulationManager.AddAction`); UI and camera calls go through the main-thread dispatcher.

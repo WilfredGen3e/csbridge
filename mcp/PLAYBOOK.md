@@ -25,8 +25,12 @@ You control a running Cities: Skylines 1 through tools. Plan like a city planner
 4. Connect the new roads to the highway network (same connected road component) or no one will ever move in. Check this before waiting for growth.
 5. Zoning: compact residential (high density in the centre and along the spine, low on the edges), commercial and office as a buffer between homes and industry, industry in a separate area near the highway exit reached by one road. Never scatter industry among homes.
 6. Services per neighbourhood: fire, police, clinic/hospital, elementary and high school, parks in the middle of blocks, garbage (landfill near industry, not near homes), cemetery, bus depot and bus lines (`create_transport_line`). Finish one neighbourhood completely before starting the next.
-7. Public transport: bus lines on roads (needs a Bus Depot, vehicles start after a few game days); above-ground metro between two `Overground Metro Station 01` joined with `Metro Track Ground 01`. Show off a line with `get_vehicles` + `follow`.
+7. Public transport (metro/train unlock by building, not by population: place a metro station building first, then `Metro Track Ground 01` becomes available, then the metro line; `list_prefabs`/`get_transport_types` show `unlock_milestone` with the requirement; `unlock what=transport` does not skip these): bus lines on roads (needs a Bus Depot, vehicles start after a few game days); above-ground metro between two `Overground Metro Station 01` joined with `Metro Track Ground 01`. Show off a line with `get_vehicles` + `follow`.
 8. Run the game (`set_paused false`, `set_speed 3`), watch demand and problems, adjust taxes (`set_taxes`, lower taxes = more demand) and budgets.
+
+## Parks and park areas
+- Plain parks (`Regular Park`, `Expensive Park`, plazas) are ordinary buildings: `place_building`, best in the middle of blocks.
+- Park areas (zoo, amusement park, nature reserve, industry and campus areas) need the matching DLC. `create_park` paints the area (type + radius), then place its Main Gate building (`list_prefabs filter=Gate`) inside; park policies (`get_policies park=<id>`, `set_policy park=<id>`) work per area. Not available without the DLC prefabs; airport areas are not supported.
 
 ## Building network pieces (build_road)
 - Roads, rails, pipes (`Water Pipe`) and power lines (`Power Line`) all use `build_road`. Pipes can run under roads and across open land; they carry water and sewage. Pipes along every road centre line serve the buildings beside it.
