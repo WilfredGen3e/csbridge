@@ -16,6 +16,25 @@ namespace CSBridge
         private static int strikes;
         private static string lastTrigger = null;
         private static readonly object lk = new object();
+        // "Pause while I think": when idle_pause_s > 0 the game pauses itself after that many seconds without any API request
+        // and continues with the next request. A pause set by the player or by the water/power guard is never touched.
+        private static int idlePauseSeconds;
+        private static long lastRequestTicks = DateTime.UtcNow.Ticks;
+        private static bool pausedByIdle;
+
+        public static void Touch(string path)
+        {
+            if (path == "/ping") return;
+            lastRequestTicks = DateTime.UtcNow.Ticks;
+            if (!pausedByIdle) return;
+            pausedByIdle = false;
+            try
+            {
+                SimulationManager sim = Singleton<SimulationManager>.instance;
+                sim.AddAction(delegate () { sim.SimulationPaused = false; });
+            }
+            catch (Exception) { }
+        }
 
         public static void Register(HttpServer server)
         {
@@ -39,7 +58,7 @@ namespace CSBridge
 
         private static void Tick(object o)
         {
-            if (!enabled) return;
+            if (!enabled && idlePauseSeconds <= 0) return;
             try
             {
                 SimulationManager sim = Singleton<SimulationManager>.instance;
@@ -47,6 +66,15 @@ namespace CSBridge
                 {
                     try
                     {
+                        if (idlePauseSeconds > 0 && !sim.SimulationPaused && !pausedByIdle
+                            && (DateTime.UtcNow.Ticks - lastRequestTicks) > idlePauseSeconds * 10000000L)
+                        {
+                            sim.SimulationPaused = true;
+                            pausedByIdle = true;
+                            BridgeLog.Info("Idle pause: no API request for " + idlePauseSeconds + " s");
+                            return;
+                        }
+                        if (!enabled) return;
                         if (sim.SimulationPaused) return;
                         string problem = Check();
                         lock (lk)
@@ -68,15 +96,20 @@ namespace CSBridge
         // GET /guard -> {"enabled":..,"last_trigger":..}
         private static HttpResponse Status(HttpRequest req)
         {
-            return HttpResponse.Json(200, new JsonWriter().Obj().Prop("enabled", enabled).Prop("last_trigger", lastTrigger).EndObj().ToString());
+            return HttpResponse.Json(200, new JsonWriter().Obj().Prop("enabled", enabled).Prop("idle_pause_s", idlePauseSeconds)
+                .Prop("paused_by_idle", pausedByIdle).Prop("last_trigger", lastTrigger).EndObj().ToString());
         }
 
-        // POST /guard {"enabled":true|false}
+        // POST /guard {"enabled":true|false, "idle_pause_s":0-600}
+        //   enabled: pause when water/sewage/electricity run short; idle_pause_s: pause after that many seconds without a request
         private static HttpResponse Set(HttpRequest req)
         {
-            enabled = JsonReader.GetBool(JsonReader.ParseFlat(req.Body), "enabled");
+            System.Collections.Generic.Dictionary<string, string> body = JsonReader.ParseFlat(req.Body);
+            if (body.ContainsKey("enabled")) enabled = JsonReader.GetBool(body, "enabled");
+            if (body.ContainsKey("idle_pause_s")) idlePauseSeconds = JsonReader.GetInt(body, "idle_pause_s", 0, 600);
+            lastRequestTicks = DateTime.UtcNow.Ticks;
             Stop();
-            if (enabled) timer = new Timer(Tick, null, 3000, 3000);
+            if (enabled || idlePauseSeconds > 0) timer = new Timer(Tick, null, 3000, 3000);
             lock (lk) { strikes = 0; if (!enabled) lastTrigger = null; }
             return Status(req);
         }

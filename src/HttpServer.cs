@@ -142,6 +142,7 @@ namespace CSBridge
             if (req.Headers.ContainsKey("origin"))
                 return HttpResponse.Error(403, "Browser requests are not allowed");
 
+            GuardEndpoints.Touch(req.Path);
             Handler h;
             if (routes.TryGetValue(req.Method + " " + req.Path, out h)) return h(req);
 

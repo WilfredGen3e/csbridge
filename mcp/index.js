@@ -259,7 +259,7 @@ server.tool(
     }
   }
 );
-postTool(server, "set_guard", "Safety net while the game runs: enabled=true pauses the game by itself when water, sewage or electricity capacity falls below consumption twice in a row (the reason is returned by get_guard and written to the log). Turn it on before you run the game at speed 3 and leave to think.", { enabled: z.boolean() }, "/guard");
+postTool(server, "set_guard", "Safety net while the game runs. enabled=true pauses the game by itself when water, sewage or electricity capacity falls below consumption twice in a row (the reason is returned by get_guard and written to the log). Turn it on before you run the game at speed 3 and leave to think.", { enabled: z.boolean().optional(), idle_pause_s: z.number().int().min(0).max(600).optional().describe("Also pause the game by itself when no tool call arrives for this many seconds (0 = off) and continue on the next call, so game time does not run while you think") }, "/guard");
 tool(server, "get_guard", "Is the safety guard on, and did it pause the game (last_trigger with reason and game time)?", "/guard");
 postTool(server, "bulldoze_building", "Remove a building by id (from get_map).", { id: z.number().int() }, "/building/bulldoze");
 const BUILD_ROAD_SHAPE = {
@@ -297,7 +297,7 @@ server.tool(
 
 server.tool(
   "build_many",
-  "Run several build steps in one call to save round trips and tokens. ops = array of objects with kind \"road\" (same fields as build_road, incl. with_pipe), \"zone\" (same as zone) or \"building\" (prefab, x, z, angle_deg). Steps run in order; a failing step is reported and the rest still run unless stop_on_error is true. The answer is one short line per step.",
+  "Run several build steps in one call to save round trips and tokens. ops = array of objects with kind \"road\" (same fields as build_road, incl. with_pipe), \"zone\" (same as zone), \"building\" (prefab, x, z, angle_deg), \"tree\" / \"prop\" (like place_tree / place_prop) or \"bulldoze_area\". Steps run in order; a failing step is reported and the rest still run unless stop_on_error is true. The answer is one short line per step.",
   { ops: z.array(z.record(z.any())).min(1).max(40), stop_on_error: z.boolean().optional() },
   async (args) => {
     const lines = [];
@@ -310,8 +310,8 @@ server.tool(
           const r = await buildRoad(op);
           failed = r.ok === false;
           line = { ok: r.ok, built: r.built ?? r.would_build, removed: r.removed, error: r.error, pipe: r.pipe ? (r.pipe.ok ? "ok" : r.pipe.error) : undefined };
-        } else if (kind === "zone" || kind === "building") {
-          const path = kind === "zone" ? "/zone" : "/building/place";
+        } else if (kind === "zone" || kind === "building" || kind === "tree" || kind === "prop" || kind === "bulldoze_area") {
+          const path = { zone: "/zone", building: "/building/place", tree: "/tree/place", prop: "/prop/place", bulldoze_area: "/bulldoze/area" }[kind];
           const r = JSON.parse(await call(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(op) }));
           line = { ok: r.ok !== false, ...(kind === "building" ? { id: r.id } : { cells_changed: r.cells_changed }) };
         } else { failed = true; line = { ok: false, error: "unknown kind " + kind }; }
@@ -376,6 +376,59 @@ postTool(
   "Enable or disable a policy (name from get_policies) for the whole city (district omitted or 0), one district, or - for park policies such as AnimalEthics, ParkAdvertisement, FireworksBan - one park area (park=<id>). Policies have upkeep costs.",
   { policy: z.string(), enabled: z.boolean(), district: z.number().int().optional(), park: z.number().int().optional() },
   "/policy"
+);
+
+// ---- extra tools: area bulldoze, traffic per road, text map, loans, trees/props, terrain, traffic lights, move ----
+const AREA = { x1: z.number().optional(), z1: z.number().optional(), x2: z.number().optional(), z2: z.number().optional(), x: z.number().optional(), z: z.number().optional(), radius: z.number().optional() };
+postTool(
+  server,
+  "bulldoze_area",
+  "Remove many things at once in a rectangle (x1,z1,x2,z2) or circle (x,z,radius, max 1500 m). what = comma list of buildings, roads, trees, props (default buildings,roads). Filters: service, prefab (buildings), road (road type contains, e.g. Power Line). Always try dry_run=true first: it only counts and lists a sample. Buildings that belong to a larger structure are skipped. " + COORD,
+  { ...AREA, what: z.string().optional(), service: z.string().optional(), prefab: z.string().optional(), road: z.string().optional(), dry_run: z.boolean().optional() },
+  "/bulldoze/area"
+);
+getTool(server, "get_traffic_roads", "The busiest road segments (density 0-255, 255 = jammed) with road type and position, optionally only within radius of x,z. Use it to find where traffic jams are; fix with upgrade_road, new roads or set_traffic_lights.", { x: z.number().optional(), z: z.number().optional(), radius: z.number().optional(), limit: z.number().int().min(1).max(200).optional() }, "/traffic/roads");
+getTool(server, "get_zone_grid", "The area as a text picture (cheap in tokens, shows zones that screenshots do not): rows from north to south, # = road, r/R = ResidentialLow/High, c/C = CommercialLow/High, I = Industrial, O = Office, . = unzoned cell, h/k/f/o = home/shop/factory/office building, S = service building. Cell size default 8 m, max 160 cells per side. " + COORD, { x: z.number(), z: z.number(), radius: z.number().min(16).max(640).optional().describe("Default 160"), cell: z.number().min(4).max(64).optional().describe("Metres per character, default 8") }, "/zones/grid");
+tool(server, "get_loans", "Bank loan offers (bank, offer, amount, interest, length) and the loans taken.", "/loans");
+postTool(server, "take_loan", "Take a loan: bank and offer numbers from get_loans.", { bank: z.number().int().min(0).max(7), offer: z.number().int().min(0).max(15) }, "/loans/take");
+postTool(server, "pay_loan", "Pay off a loan now (slot from get_loans).", { slot: z.number().int().min(0).max(7) }, "/loans/pay");
+getTool(server, "list_flora", "List tree or prop prefab names (kind=tree or prop, filter=text). Props include fences, benches, lamps, rocks.", { kind: z.enum(["tree", "prop"]).optional(), filter: z.string().optional(), limit: z.number().int().min(1).max(500).optional() }, "/flora/prefabs");
+postTool(server, "place_tree", "Plant a tree, or count trees at random spots within radius of x,z (count > 1 needs radius). " + COORD, { prefab: z.string(), x: z.number(), z: z.number(), count: z.number().int().min(1).max(500).optional(), radius: z.number().optional() }, "/tree/place");
+postTool(server, "place_prop", "Place a prop (fence, bench, lamp, rock...), or count random ones within radius. angle_deg only for a single prop. " + COORD, { prefab: z.string(), x: z.number(), z: z.number(), angle_deg: z.number().optional(), count: z.number().int().min(1).max(500).optional(), radius: z.number().optional() }, "/prop/place");
+postTool(
+  server,
+  "edit_terrain",
+  "Reshape the ground in a circle: mode flatten (to `height` metres, default the height at the centre), raise or lower (by `amount` metres), smooth. falloff 0-1 = how much of the radius blends out softly (default 0.3). Roads and buildings that stood there are not moved: flatten BEFORE you build. The grid resolution is 16 m. " + COORD,
+  { mode: z.enum(["flatten", "raise", "lower", "smooth"]), x: z.number(), z: z.number(), radius: z.number().min(8).max(400).optional().describe("Default 60"), height: z.number().optional(), amount: z.number().optional(), falloff: z.number().min(0).max(1).optional() },
+  "/terrain/edit"
+);
+postTool(server, "set_traffic_lights", "Switch traffic lights on or off at a junction (3+ roads): give x,z (nearest junction within 12 m) or node.", { x: z.number().optional(), z: z.number().optional(), node: z.number().int().optional(), enabled: z.boolean().optional().describe("Default true") }, "/node/traffic_lights");
+server.tool(
+  "move_building",
+  "Move a building (id from get_map) to x,z (optionally a new angle_deg). Done as bulldoze + place with the same prefab; when the new spot is refused the building is put back where it was. Buildings that grew by themselves (homes, shops) cannot be moved this way: they would get a new, empty life. Use it for services and parks.",
+  { id: z.number().int(), x: z.number(), z: z.number(), angle_deg: z.number().optional() },
+  async (args) => {
+    const post = (path, body) => call(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    try {
+      const b = JSON.parse(await call("/building?id=" + args.id));
+      const prefab = b.prefab || b.name;
+      if (!prefab) throw new Error("Cannot read the building's prefab");
+      const growable = ["Residential", "Commercial", "Industrial", "Office"].includes(b.service);
+      if (growable) throw new Error(b.service + " buildings grow from zones and cannot be moved; change the zone instead.");
+      const oldAngle = b.angle_deg ?? 0;
+      await post("/building/bulldoze", { id: args.id });
+      try {
+        const r = await post("/building/place", { prefab, x: args.x, z: args.z, angle_deg: args.angle_deg ?? oldAngle });
+        return { content: [{ type: "text", text: r }] };
+      } catch (e) {
+        let back = "restore failed";
+        try { back = await post("/building/place", { prefab, x: b.x, z: b.z, angle_deg: oldAngle }); } catch (e2) { back = "restore failed: " + e2.message; }
+        return { isError: true, content: [{ type: "text", text: "Move refused: " + e.message + ". Put back: " + back }] };
+      }
+    } catch (e) {
+      return { isError: true, content: [{ type: "text", text: e.message }] };
+    }
+  }
 );
 
 // ---- park areas (parks, zoo, amusement park, nature reserve, industry and campus areas) ----

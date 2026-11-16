@@ -11,6 +11,12 @@ You control a running Cities: Skylines 1 through tools. Plan like a city planner
 - Before running the game at speed 3 while you plan, switch on `set_guard`: it pauses the game when water, sewage or electricity capacity drops below consumption.
 - `get_progress` lists the milestones with their requirement; `list_prefabs` shows `unlock_milestone` for locked items.
 
+## More tools
+- `get_zone_grid`: the area as a text picture (roads, zones, buildings): the cheap way to see what a screenshot cannot show. Check it before and after zoning.
+- `bulldoze_area` (dry_run first), `move_building`, `edit_terrain` (flatten BEFORE you build; roads and buildings are not moved), `place_tree` / `place_prop` (`list_flora` for names), `get_traffic_roads` + `set_traffic_lights` for jams, `get_loans` / `take_loan` / `pay_loan`.
+- `set_guard idle_pause_s=30` pauses the game by itself when you stop calling tools for 30 s and continues on your next call.
+- There is no undo: `save_game` under a new name before a risky step, `load_save` to go back.
+
 ## Rules of the house
 - Check `ping`, then `get_stats` and `get_areas`. Never overwrite a save you did not create: `save_game` refuses existing names, keep it that way. `load_save` and a game restart drop unsaved progress, so save first.
 - Build step by step: one neighbourhood at a time. After each step verify with `get_services`, `get_problems`, `get_demand` and a `screenshot` (set_time 12, set_camera top-down or isometric first).
@@ -25,7 +31,7 @@ You control a running Cities: Skylines 1 through tools. Plan like a city planner
 4. Connect the new roads to the highway network (same connected road component) or no one will ever move in. Check this before waiting for growth.
 5. Zoning: compact residential (high density in the centre and along the spine, low on the edges), commercial and office as a buffer between homes and industry, industry in a separate area near the highway exit reached by one road. Never scatter industry among homes.
 6. Services per neighbourhood: fire, police, clinic/hospital, elementary and high school, parks in the middle of blocks, garbage (landfill near industry, not near homes), cemetery, bus depot and bus lines (`create_transport_line`). Finish one neighbourhood completely before starting the next.
-7. Public transport (metro/train unlock by building, not by population: place a metro station building first, then `Metro Track Ground 01` becomes available, then the metro line; `list_prefabs`/`get_transport_types` show `unlock_milestone` with the requirement; `unlock what=transport` does not skip these): bus lines on roads (needs a Bus Depot, vehicles start after a few game days); above-ground metro between two `Overground Metro Station 01` joined with `Metro Track Ground 01`. Show off a line with `get_vehicles` + `follow`.
+7. Public transport (metro/train unlock by building, not by population: place a metro station building first, then `Metro Track Ground 01` becomes available, then the metro line; `list_prefabs`/`get_transport_types` show `unlock_milestone` with the requirement; `unlock what=transport` does not skip these): bus lines on roads (needs a Bus Depot, vehicles start after a few game days); above-ground metro between two `Overground Metro Station 01` joined with `Metro Track Ground 01` (underground stations do not work yet). Show off a line with `get_vehicles` + `follow`.
 8. Run the game (`set_paused false`, `set_speed 3`), watch demand and problems, adjust taxes (`set_taxes`, lower taxes = more demand) and budgets.
 
 ## Parks and park areas

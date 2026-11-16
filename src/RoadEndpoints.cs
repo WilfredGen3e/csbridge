@@ -88,8 +88,9 @@ namespace CSBridge
             if (s.Node != 0)
             {
                 NetNode n = Singleton<NetManager>.instance.m_nodes.m_buffer[s.Node];
-                cp.m_elevation = n.m_elevation;
-                if (n.Info != null && n.Info.m_netAI != null && n.Info.m_netAI.IsUnderground()) cp.m_elevation = -cp.m_elevation;
+                // Underground nodes lie at -elevation; the surface ends of underground stations (not flagged Underground) lie at 0.
+                cp.m_elevation = (n.m_flags & NetNode.Flags.Underground) != NetNode.Flags.None ? -(float)n.m_elevation
+                    : (n.Info != null && n.Info.m_netAI != null && n.Info.m_netAI.IsUnderground() ? 0f : (float)n.m_elevation);
                 cp.m_position = n.m_position;
             }
             cp.m_direction = dir;

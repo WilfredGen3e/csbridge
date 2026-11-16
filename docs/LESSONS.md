@@ -121,3 +121,11 @@
 
 ## Opslaan van andermans stad
 - `/save` slaat altijd de nu geladen stad op: controleer eerst met `get_stats` dat het jouw stad is (de gebruiker kan zelf een andere stad hebben geladen). Zet `set_full_demand`, `set_guard` e.d. nooit aan in een stad die je niet zelf bouwt.
+
+## Ondergrondse metro (niet opgelost)
+- **Wat ging mis:** `Metro Station Below Ground Island` / `Metro Station Track` zijn alleen netwerken: ze maken geen stationsgebouw, dus `create_transport_line` vindt geen station. De uiteinden van het eiland-station liggen op maaiveld (Elevation 12, niet Underground) en zijn te stijl om er een `Metro Track` aan te koppelen (SlopeTooSteep). De gebouwen `Underground-Ground-Elevated Metro Hub`, `Integrated Metro Station`, `Metro Entrance` gaven in de testkaart ObjectCollision/SlopeTooSteep.
+- **Wat wel werkt:** bovengrondse metro (`Overground Metro Station 01` + `Metro Track Ground 01`). Gebruik `/nodes?x=&z=` om hoogte, elevatie en Underground-vlag van knooppunten te zien.
+- **Mogelijke weg verder:** de Hub op vlak, vrij terrein naast een eigen weg proberen (eerst `edit_terrain flatten`).
+
+## Tools die iets slopen of veranderen
+- `/bulldoze/area` verwijdert ook bestaande bomen: altijd eerst `dry_run`. `/terrain/edit` verplaatst geen wegen of gebouwen. Beide hebben geen undo: sla eerst op onder een nieuwe naam.

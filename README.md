@@ -19,6 +19,7 @@ Two parts:
 | **Zones & land** | `zone` (paint/clear), `get_areas`, `unlock_area` |
 | **Manage** | `set_taxes`, `set_service_budget`, `get_policies` / `set_policy`, districts (`create_district`, `paint_district`, `delete_district`, `get_districts`), park areas (`create_park`, `paint_park`, `delete_park`, `get_parks`; park policies via `set_policy park=<id>`) |
 | **Transport** | `create_transport_line` (bus/tram/trolleybus on roads; train/metro/ship/air between stations), `get_transport_lines`, `set_transport_line`, `delete_transport_line` |
+| **Tools** | `bulldoze_area`, `move_building`, `edit_terrain`, `place_tree` / `place_prop` / `list_flora`, `get_zone_grid` (text map), `get_traffic_roads`, `set_traffic_lights`, `get_loans` / `take_loan` / `pay_loan` |
 | **Game** | `set_paused`, `set_speed`, `set_guard` / `get_guard` (auto-pause when water/power run short), `build_many` (batch), `unlock` (milestones, monuments, map tiles), `set_full_demand`, `get_ui` / `close_ui` / `set_auto_dismiss` |
 | **Saves** | `get_saves`, `save_game` (never overwrites unless asked), `load_save` |
 
