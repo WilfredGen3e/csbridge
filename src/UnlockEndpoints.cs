@@ -18,10 +18,21 @@ namespace CSBridge
             UnlockManager um = Singleton<UnlockManager>.instance;
             GameAreaManager am = Singleton<GameAreaManager>.instance;
             MilestoneInfo current = um.GetCurrentMilestone();
-            return new JsonWriter().Obj()
-                .Prop("current_milestone", current != null ? current.name : null)
-                .Prop("unlocked_areas", am.m_areaCount)
-                .EndObj().ToString();
+            JsonWriter w = new JsonWriter().Obj()
+                .Prop("current_milestone", current != null ? BuildEndpoints.MilestoneName(current) : null)
+                .Prop("unlocked_areas", am.m_areaCount);
+            // The progression milestones (population steps) with their requirement, so you know what unlocks when.
+            w.ArrIn("milestones");
+            try
+            {
+                MilestoneInfo[] all = um.m_properties.m_progressionMilestones;
+                if (all != null)
+                    foreach (MilestoneInfo m in all)
+                        if (m != null) w.Obj().Prop("milestone", BuildEndpoints.MilestoneName(m)).Prop("unlocked", BuildEndpoints.IsUnlocked(m)).EndObj();
+            }
+            catch (Exception) { }
+            w.EndArr();
+            return w.EndObj().ToString();
         }
 
         // GET /progress -> current milestone and number of unlocked map tiles

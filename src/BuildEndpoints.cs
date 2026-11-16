@@ -103,6 +103,18 @@ namespace CSBridge
             throw new ApiException(404, "No road prefab '" + name + "'. Use /prefabs?kind=road&filter=...");
         }
 
+        /// <summary>Name plus requirement text of a milestone (e.g. "Milestone 7 (Population: 7,000)"), for "when does this unlock?".</summary>
+        public static string MilestoneName(MilestoneInfo m)
+        {
+            if (m == null) return null;
+            try
+            {
+                MilestoneInfo.ProgressInfo p = m.GetLocalizedProgress();
+                return m.name + (string.IsNullOrEmpty(p.m_description) ? "" : " (" + p.m_description + ")");
+            }
+            catch (Exception) { return m.name; }
+        }
+
         public static bool IsUnlocked(MilestoneInfo m)
         {
             return m == null || Singleton<UnlockManager>.instance.Unlocked(m);
@@ -148,6 +160,7 @@ namespace CSBridge
                             .Prop("placement", b.m_placementMode.ToString())
                             .Prop("cost", cost)
                             .Prop("unlocked", unlocked)
+                            .Prop("unlock_milestone", unlocked ? null : MilestoneName(b.GetUnlockMilestone()))
                             .EndObj();
                     }
                 }
@@ -252,7 +265,10 @@ namespace CSBridge
                     info.m_cellWidth, info.m_cellLength, true, new ulong[1024], new ulong[1024]);
                 if (maxY - minY > info.m_maxHeightOffset) err |= ToolBase.ToolErrors.SlopeTooSteep;
                 if (err != ToolBase.ToolErrors.None)
-                    throw new ApiException(409, "Cannot place '" + info.name + "' there: " + err);
+                {
+                    System.Collections.Generic.List<string> hit = (err & ToolBase.ToolErrors.ObjectCollision) != 0 ? RoadEndpoints.CollidingObjects() : new System.Collections.Generic.List<string>();
+                    throw new ApiException(409, "Cannot place '" + info.name + "' there: " + err + (hit.Count > 0 ? " (in the way: " + string.Join(", ", hit.ToArray()) + ")" : ""));
+                }
 
                 SimulationManager sim = Singleton<SimulationManager>.instance;
                 if (cost > 0 && Singleton<EconomyManager>.instance.PeekResource(EconomyManager.Resource.Construction, cost) != cost)

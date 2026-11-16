@@ -25,6 +25,7 @@ namespace CSBridge
             TransportEndpoints.Register(server);
             SaveEndpoints.Register(server);
             DiagnosticsEndpoints.Register(server);
+            GuardEndpoints.Register(server);
         }
 
         private static HttpResponse Ping(HttpRequest req)

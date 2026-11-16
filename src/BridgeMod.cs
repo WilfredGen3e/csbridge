@@ -63,6 +63,7 @@ namespace CSBridge
         private static void Stop()
         {
             UiEndpoints.StopWatcher();
+            GuardEndpoints.Stop();
             if (server != null)
             {
                 try { server.Stop(); } catch (System.Exception ex) { BridgeLog.Error("Stop", ex); }

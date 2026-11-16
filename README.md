@@ -14,12 +14,12 @@ Two parts:
 |---|---|
 | **Look** | `get_playbook`, `get_weather` / `set_weather`, `get_map` (roads, buildings, zones in an area), `get_terrain`, `screenshot` (returns the image), `get_camera` / `set_camera`, `get_views` / `set_view` (traffic, electricity, ... overlays), `set_time` |
 | **Read the city** | `get_stats`, `get_demand`, `get_budget`, `get_services`, `get_traffic`, `get_problems`, `get_progress`, `get_building` (one building in detail) |
-| **Diagnose** | `check_networks` (are roads/pipes/power one connected piece, is the road net connected to the highway), `get_vehicles`, `follow` (camera follows a vehicle or building) |
-| **Build** | `list_prefabs`, `place_building`, `bulldoze_building`, `build_road` (roads, rails, pipes, power lines; snaps to junctions; per-point elevation `x,z,e` for bridges and tunnels), `upgrade_road`, `bulldoze_road` |
+| **Diagnose** | `get_city_summary` (one-call overview), `check_networks` (are roads/pipes/power one connected piece, is the road net connected to the highway), `get_vehicles`, `follow` (camera follows a vehicle or building) |
+| **Build** | `list_prefabs`, `place_building`, `bulldoze_building`, `build_road` (dry_run, reports removed objects and what is in the way; roads, rails, pipes, power lines; snaps to junctions; per-point elevation `x,z,e` for bridges and tunnels), `upgrade_road`, `bulldoze_road` |
 | **Zones & land** | `zone` (paint/clear), `get_areas`, `unlock_area` |
 | **Manage** | `set_taxes`, `set_service_budget`, `get_policies` / `set_policy`, districts (`create_district`, `paint_district`, `delete_district`, `get_districts`) |
 | **Transport** | `create_transport_line` (bus/tram/trolleybus on roads; train/metro/ship/air between stations), `get_transport_lines`, `set_transport_line`, `delete_transport_line` |
-| **Game** | `set_paused`, `set_speed`, `unlock` (milestones, monuments, map tiles), `set_full_demand`, `get_ui` / `close_ui` / `set_auto_dismiss` |
+| **Game** | `set_paused`, `set_speed`, `set_guard` / `get_guard` (auto-pause when water/power run short), `build_many` (batch), `unlock` (milestones, monuments, map tiles), `set_full_demand`, `get_ui` / `close_ui` / `set_auto_dismiss` |
 | **Saves** | `get_saves`, `save_game` (never overwrites unless asked), `load_save` |
 
 Coordinates are metres; the buildable map runs from -4800 to 4800 on x and z. Buildings and roads go through the game's own placement code (collision, slope, water, cost, unlocks), so invalid placements are refused with the game's error.

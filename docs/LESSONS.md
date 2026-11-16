@@ -99,3 +99,9 @@
 - Werknemers van een gebouw: `CitizenUnit` met flag `Work` in `m_citizenUnits`; arbeidsplaatsen via `PrivateBuildingAI.CalculateWorkplaceCount`.
 - Metro bovengronds werkt: `Overground Metro Station 01` (roadside, 16x4), sporen `Metro Track Ground 01` tussen de stationssporen (eindknopen snappen), daarna `create_transport_line type=Metro`; na een paar spel-dagen rijdt er een trein. Tram-prefabs ontbreken in deze installatie.
 
+
+## ObjectCollision zonder oorzaak / stil verdwijnende objecten
+- **Wat ging mis:** `build_road` meldde "ok" terwijl er palen en een stroomlijn waren weggehaald; ObjectCollision noemde niet wat botste.
+- **Waarom:** `NetTool.CreateNode` (test=true) vult de botsmaskers van `ToolController` (privé `m_collidingSegments2`/`m_collidingBuildings2`, bitmasks per id). Niet-belangrijke objecten worden bij het echte bouwen weggehaald, belangrijke geven ObjectCollision.
+- **Fix:** na de testpas de maskers via reflection lezen (`RoadEndpoints.CollidingObjects`) en teruggeven als `removed`/`would_remove` of in de foutmelding. Ook voor `place_building`.
+- **Let op:** `get_map` verbergt nu pijpen/stroomlijnen/paden standaard en geeft compacte arrays; `verbose=true` of `all=true` voor de oude uitvoer.

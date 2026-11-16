@@ -108,6 +108,49 @@ namespace CSBridge
             return pts;
         }
 
+        // Objects the last CreateNode test pass found in the way (the game would remove them on a real build,
+        // or refuse with ObjectCollision when they are important). Read from the tool controller's private masks.
+        internal static List<string> CollidingObjects()
+        {
+            List<string> list = new List<string>();
+            try
+            {
+                ToolController tc = Singleton<ToolManager>.instance.m_properties;
+                System.Reflection.BindingFlags f = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+                ulong[] segs = (ulong[])typeof(ToolController).GetField("m_collidingSegments2", f).GetValue(tc);
+                ulong[] blds = (ulong[])typeof(ToolController).GetField("m_collidingBuildings2", f).GetValue(tc);
+                NetManager nm = Singleton<NetManager>.instance;
+                BuildingManager bm = Singleton<BuildingManager>.instance;
+                for (int i = 0; i < segs.Length && list.Count < 20; i++)
+                {
+                    if (segs[i] == 0) continue;
+                    for (int j = 0; j < 64; j++)
+                    {
+                        if ((segs[i] & (ulong)(1L << j)) == 0) continue;
+                        int id = (i << 6) | j;
+                        if (id == 0 || id >= nm.m_segments.m_buffer.Length || (nm.m_segments.m_buffer[id].m_flags & NetSegment.Flags.Created) == NetSegment.Flags.None) continue;
+                        NetInfo ni = nm.m_segments.m_buffer[id].Info;
+                        list.Add("segment " + id + " (" + (ni != null ? ni.name : "?") + ")");
+                    }
+                }
+                for (int i = 0; i < blds.Length && list.Count < 20; i++)
+                {
+                    if (blds[i] == 0) continue;
+                    for (int j = 0; j < 64; j++)
+                    {
+                        if ((blds[i] & (ulong)(1L << j)) == 0) continue;
+                        int id = (i << 6) | j;
+                        if (id == 0 || id >= bm.m_buildings.m_buffer.Length || (bm.m_buildings.m_buffer[id].m_flags & Building.Flags.Created) == Building.Flags.None) continue;
+                        BuildingInfo bi = bm.m_buildings.m_buffer[id].Info;
+                        Vector3 pos = bm.m_buildings.m_buffer[id].m_position;
+                        list.Add("building " + id + " (" + (bi != null ? bi.name : "?") + " at " + (int)pos.x + "," + (int)pos.z + ")");
+                    }
+                }
+            }
+            catch (Exception ex) { BridgeLog.Error("CollidingObjects", ex); }
+            return list;
+        }
+
         // POST /road/build
         //   {"road":"Basic Road","points":"x,z;x,z;x,z", "curve":"cx,cz" (only with 2 points), "elevation":0, "reverse":false, "snap":8}
         // or {"road":..., "x1":..,"z1":..,"x2":..,"z2":..,"cx":..,"cz":..}
@@ -154,6 +197,8 @@ namespace CSBridge
             bool reverse = body.ContainsKey("reverse") && JsonReader.GetBool(body, "reverse");
             float snap = BuildEndpoints.GetFloat(body, "snap", 8f);
             if (snap < 0f || snap > 30f) throw new ApiException(400, "snap must be 0-30");
+            bool dryRun = body.ContainsKey("dry_run") && JsonReader.GetBool(body, "dry_run");
+            bool verbose = body.ContainsKey("verbose") && JsonReader.GetBool(body, "verbose");   // per-segment details (cost, snapping, end node)
 
             string json = GameThread.Run<string>(delegate ()
             {
@@ -165,6 +210,7 @@ namespace CSBridge
                 int built = 0;
                 long totalCost = 0;
                 string failure = null;
+                List<string> removed = new List<string>();
                 for (int i = 0; i + 1 < pts.Count; i++)
                 {
                     Snap a = FindSnap(info, pts[i], snap), b = FindSnap(info, pts[i + 1], snap);
@@ -181,17 +227,30 @@ namespace CSBridge
 
                     ushort node, seg; int cost, prod;
                     ToolBase.ToolErrors err = NetTool.CreateNode(info, sp, mp, ep, NodeBuffer, 1000, true, false, true, true, reverse, false, 0, out node, out seg, out cost, out prod);
-                    if (err != ToolBase.ToolErrors.None) { failure = "segment " + i + ": " + err; break; }
+                    // The test pass leaves the objects in the way in the tool's collision masks: report them by id.
+                    List<string> hit = CollidingObjects();
+                    if (err != ToolBase.ToolErrors.None)
+                    {
+                        failure = "segment " + i + ": " + err + (hit.Count > 0 ? " (in the way: " + string.Join(", ", hit.ToArray()) + ")" : "");
+                        break;
+                    }
+                    foreach (string h in hit) removed.Add(h);
+                    if (dryRun) { built++; totalCost += cost / 100; continue; }
                     err = NetTool.CreateNode(info, sp, mp, ep, NodeBuffer, 1000, false, false, true, true, reverse, false, 0, out node, out seg, out cost, out prod);
                     if (err != ToolBase.ToolErrors.None) { failure = "segment " + i + ": " + err; break; }
                     built++;
                     totalCost += cost / 100;
+                    if (!verbose) { segs.Raw(seg.ToString()); continue; }
                     segs.Obj().Prop("segment", seg).Prop("end_node", node)
                         .Prop("snapped_start", a.Node != 0 ? "node" : (a.Segment != 0 ? "segment" : "none"))
                         .Prop("snapped_end", b.Node != 0 ? "node" : (b.Segment != 0 ? "segment" : "none"))
                         .Prop("cost", cost / 100).EndObj();
                 }
-                w.Prop("ok", failure == null).Prop("road", info.name).Prop("built", built).Prop("cost", totalCost);
+                w.Prop("ok", failure == null).Prop("road", info.name).Prop(dryRun ? "would_build" : "built", built).Prop("cost", totalCost);
+                if (dryRun) w.Prop("dry_run", true);
+                w.ArrIn(dryRun ? "would_remove" : "removed");
+                foreach (string r in removed) w.Str(r);
+                w.EndArr();
                 w.Raw("\"segments\":" + segs.EndArr().ToString());
                 if (failure != null) w.Prop("error", failure);
                 string result = w.EndObj().ToString();

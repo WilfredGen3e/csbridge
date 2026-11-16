@@ -107,6 +107,7 @@ namespace CSBridge
         {
             Dictionary<string, string> q = BuildEndpoints.ParseQuery(req.Query);
             bool hideUi = !q.ContainsKey("hide_ui") || (q["hide_ui"] != "0" && q["hide_ui"] != "false");
+            int targetWidth = BuildEndpoints.GetIntQ(q, "width", 0, 0, 4096);   // 0 = full size; smaller images cost fewer tokens
             string dir = Path.Combine(Path.GetTempPath(), "csbridge-screenshots");
             Directory.CreateDirectory(dir);
             string path = Path.Combine(dir, "shot_" + (++shotCounter) + "_" + DateTime.Now.ToString("HHmmss") + ".png");
@@ -161,8 +162,46 @@ namespace CSBridge
                 }, 5000);
             }
             if (!File.Exists(path)) throw new ApiException(500, "The game did not write the screenshot");
+            if (targetWidth > 0) Downscale(path, targetWidth);
             return HttpResponse.Json(200, new JsonWriter().Obj().Prop("ok", true).Prop("path", path)
                 .Prop("bytes", new FileInfo(path).Length).EndObj().ToString());
+        }
+
+        // Shrinks the PNG to the given width (keeps aspect ratio, box filter). Runs on the main thread (Unity texture API).
+        private static void Downscale(string path, int width)
+        {
+            byte[] bytes = File.ReadAllBytes(path);
+            byte[] outBytes = OnMainThread<byte[]>(delegate ()
+            {
+                Texture2D src = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                try
+                {
+                    if (!src.LoadImage(bytes) || src.width <= width) return null;
+                    int w = width, h = Mathf.Max(1, (int)((long)src.height * width / src.width));
+                    Color32[] sp = src.GetPixels32();
+                    Color32[] dp = new Color32[w * h];
+                    float fx = (float)src.width / w, fy = (float)src.height / h;
+                    for (int y = 0; y < h; y++)
+                    {
+                        int y0 = (int)(y * fy), y1 = Mathf.Min(src.height, Mathf.Max(y0 + 1, (int)((y + 1) * fy)));
+                        for (int x = 0; x < w; x++)
+                        {
+                            int x0 = (int)(x * fx), x1 = Mathf.Min(src.width, Mathf.Max(x0 + 1, (int)((x + 1) * fx)));
+                            int r = 0, g = 0, b = 0, n = 0;
+                            for (int yy = y0; yy < y1; yy++)
+                                for (int xx = x0; xx < x1; xx++) { Color32 c = sp[yy * src.width + xx]; r += c.r; g += c.g; b += c.b; n++; }
+                            dp[y * w + x] = new Color32((byte)(r / n), (byte)(g / n), (byte)(b / n), 255);
+                        }
+                    }
+                    Texture2D dst = new Texture2D(w, h, TextureFormat.RGB24, false);
+                    dst.SetPixels32(dp); dst.Apply();
+                    byte[] png = dst.EncodeToPNG();
+                    UnityEngine.Object.Destroy(dst);
+                    return png;
+                }
+                finally { UnityEngine.Object.Destroy(src); }
+            }, 20000);
+            if (outBytes != null) File.WriteAllBytes(path, outBytes);
         }
 
         // GET /view -> current info view and all available modes

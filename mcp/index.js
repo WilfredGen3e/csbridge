@@ -43,6 +43,26 @@ try { PLAYBOOK = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "PLA
 
 const server = new McpServer({ name: "csbridge", version: "0.1.0" }, { instructions: PLAYBOOK });
 
+server.tool(
+  "get_city_summary",
+  "One compact check of the whole city: stats, demand, key service capacity, problem counts, traffic and whether roads/water/power are one connected network. Use this after each build step instead of five separate calls.",
+  {},
+  async () => {
+    try {
+      const get = async (p) => { try { return JSON.parse(await call(p)); } catch (e) { return { error: e.message }; } };
+      const [stats, demand, services, problems, traffic, road, water, power] = await Promise.all(
+        ["/stats", "/demand", "/services", "/problems", "/traffic", "/networks?kind=road", "/networks?kind=water", "/networks?kind=power"].map(get)
+      );
+      const net = (n) => (n.error ? n : { components: n.components, connected: n.connected, ...(n.list && n.list[0] && "has_highway" in n.list[0] ? { highway: n.list.some((c) => c.has_highway) } : {}) });
+      const probs = {};
+      for (const p of problems.problems || []) probs[p.problem] = p.buildings;
+      const out = { stats, demand, traffic, problems: problems.error ? problems : probs, networks: { road: net(road), water: net(water), power: net(power) }, services };
+      return { content: [{ type: "text", text: JSON.stringify(out) }] };
+    } catch (e) {
+      return { isError: true, content: [{ type: "text", text: e.message }] };
+    }
+  }
+);
 server.tool("get_playbook", "How to play Cities: Skylines well with these tools: order of work, city design rules, how to build pipes/power/bridges, how to diagnose problems. Read this before building anything.", {}, async () => ({ content: [{ type: "text", text: PLAYBOOK }] }));
 tool(server, "ping", "Check that the CSBridge mod is running in Cities: Skylines.", "/ping");
 tool(
@@ -156,12 +176,19 @@ const COORD = "Coordinates are in metres; the buildable map runs from -4800 to 4
 getTool(
   server,
   "get_map",
-  "Look at the city. Without arguments: counts and the bounding box of built-up area. With x, z and radius (max 2000): road segments (id, road type, endpoints), buildings (id, prefab, position, angle, size) and zoned cells in that circle. " + COORD,
+  "Look at the city. Without arguments: counts and the bounding box of built-up area. With x, z and radius (max 2000): road segments and buildings in that circle plus zoned cells. Output is compact by default: roads=[id,type,x1,z1,x2,z2], buildings=[id,prefab,service,x,z,angle]; pipes, power lines and footpaths are hidden (their count is reported) unless you ask with all=true or road=\"Water Pipe\". Use small radii (<=200) and filters to save tokens: counts_only=true gives only per-type counts, include=roads,buildings,zones picks what to list, service=Electricity / prefab=Pole / road=Power Line filter by name part. " + COORD,
   {
     x: z.number().optional(), z: z.number().optional(),
     radius: z.number().min(1).max(2000).optional().describe("Default 300 when x/z are given"),
-    limit: z.number().int().min(1).max(3000).optional().describe("Max roads and max buildings returned (default 400)"),
-    zones: z.boolean().optional().describe("Include zoned cells (default true)"),
+    limit: z.number().int().min(1).max(3000).optional().describe("Max roads and max buildings returned (default 200)"),
+    counts_only: z.boolean().optional().describe("Only per-type counts, no lists"),
+    include: z.string().optional().describe("Comma list of roads,buildings,zones (default all)"),
+    road: z.string().optional().describe("Only road segments whose type contains this text, e.g. Power Line, Water Pipe, Medium; also shows hidden network types"),
+    service: z.string().optional().describe("Only buildings of this service, e.g. Electricity, PoliceDepartment, Residential"),
+    prefab: z.string().optional().describe("Only buildings whose prefab name contains this text"),
+    all: z.boolean().optional().describe("Also list pipes, power lines and footpaths"),
+    verbose: z.boolean().optional().describe("Objects with named fields instead of compact arrays (3x larger)"),
+    zones: z.boolean().optional().describe("Include zoned cells (default true; turn off to save tokens)"),
     include_virtual: z.boolean().optional().describe("Also list the game's virtual helper networks (transport line paths, pedestrian links); default false"),
   },
   "/map"
@@ -200,21 +227,94 @@ tool(server, "get_weather", "Current and target weather: rain, fog, cloud (0-1),
 postTool(server, "set_weather", "Set the target weather (all optional): rain 0-1, fog 0-1, cloud 0-1, temperature -30..50. Keeps the weather system on; changes fade in and out slowly.", { rain: z.number().min(0).max(1).optional(), fog: z.number().min(0).max(1).optional(), cloud: z.number().min(0).max(1).optional(), temperature: z.number().min(-30).max(50).optional() }, "/weather");
 getTool(server, "get_vehicles", "Vehicles (buses, trains, cars, trucks) near a point: id, type, position, speed. Use an id with follow to watch it. " + COORD, { x: z.number(), z: z.number(), radius: z.number().min(1).max(2000).optional(), limit: z.number().int().min(1).max(100).optional() }, "/vehicles");
 postTool(server, "follow", "Make the camera follow a vehicle (from get_vehicles), a building or a citizen instance; stop=true ends it. Good for showing how a bus line or a train runs.", { vehicle: z.number().int().optional(), building: z.number().int().optional(), citizen_instance: z.number().int().optional(), stop: z.boolean().optional() }, "/camera/follow");
-postTool(server, "load_save", "Load a savegame by name (see get_saves). Drops the current city: save first if you want to keep it. The API is unavailable for about 30-60 s while the city loads.", { name: z.string() }, "/load");
+server.tool(
+  "load_save",
+  "Load a savegame by name (see get_saves). Drops the current city: save first if you want to keep it. The API is gone for about 30-90 s while the city loads; by default this tool waits until the game answers again and reports how long it took (wait=false returns at once).",
+  { name: z.string(), wait: z.boolean().optional().describe("Wait until the loaded city is ready (default true)") },
+  async (args) => {
+    try {
+      const first = await call("/load", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: args.name }) });
+      if (args.wait === false) return { content: [{ type: "text", text: first }] };
+      const t0 = Date.now();
+      await new Promise((r) => setTimeout(r, 5000));
+      while (Date.now() - t0 < 240000) {
+        try {
+          const pong = await fetch(BASE + "/ping", { signal: AbortSignal.timeout(3000) });
+          if (pong.ok) {
+            const stats = await call("/stats");
+            return { content: [{ type: "text", text: JSON.stringify({ ok: true, loaded: args.name, ready_after_s: Math.round((Date.now() - t0) / 1000), stats: JSON.parse(stats) }) }] };
+          }
+        } catch (e) { /* still loading */ }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+      return { isError: true, content: [{ type: "text", text: "Timed out after 240 s: the game still does not answer. Check the game window (get_ui cannot be reached while loading)." }] };
+    } catch (e) {
+      return { isError: true, content: [{ type: "text", text: e.message }] };
+    }
+  }
+);
+postTool(server, "set_guard", "Safety net while the game runs: enabled=true pauses the game by itself when water, sewage or electricity capacity falls below consumption twice in a row (the reason is returned by get_guard and written to the log). Turn it on before you run the game at speed 3 and leave to think.", { enabled: z.boolean() }, "/guard");
+tool(server, "get_guard", "Is the safety guard on, and did it pause the game (last_trigger with reason and game time)?", "/guard");
 postTool(server, "bulldoze_building", "Remove a building by id (from get_map).", { id: z.number().int() }, "/building/bulldoze");
-postTool(
-  server,
+const BUILD_ROAD_SHAPE = {
+  road: z.string().describe("Exact name from list_prefabs kind=road, e.g. Basic Road"),
+  points: z.string().optional(), curve: z.string().optional(),
+  x1: z.number().optional(), z1: z.number().optional(), x2: z.number().optional(), z2: z.number().optional(),
+  cx: z.number().optional(), cz: z.number().optional(),
+  elevation: z.number().optional(), reverse: z.boolean().optional().describe("Flip direction (one-way roads)"),
+  snap: z.number().min(0).max(30).optional().describe("Default 8"),
+  dry_run: z.boolean().optional().describe("Only test: report whether it would work and which existing objects would be removed, build nothing"),
+  verbose: z.boolean().optional().describe("Per-segment details (cost, snapping, end node); default is just the segment ids"),
+  with_pipe: z.boolean().optional().describe("Also lay a Water Pipe along the same centre line (water + sewage for the buildings beside the road)"),
+};
+
+async function buildRoad(args) {
+  const { with_pipe, ...rest } = args;
+  const post = (body) => call("/road/build", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const out = JSON.parse(await post(rest));
+  if (with_pipe && out.ok !== false && !rest.dry_run) {
+    try { out.pipe = JSON.parse(await post({ ...rest, road: "Water Pipe", elevation: 0, verbose: false })); }
+    catch (e) { out.pipe = { ok: false, error: e.message }; }
+  }
+  return out;
+}
+
+server.tool(
   "build_road",
-  "Build roads or other networks (rails, pipes, power lines) with the game's own tool: ends snap to existing junctions/segments within `snap` metres and cross at intersections. Give `points` (\"x,z;x,z;...\", 2-64 points, one straight segment per pair) or x1,z1,x2,z2, optionally a curve control point (curve=\"x,z\" or cx,cz) for exactly 2 points. Use bridge/elevated/tunnel prefab names plus `elevation` (metres, negative for tunnels) for non-ground roads. Long roads are split into segments by the game. Partial success is reported. " + COORD,
-  {
-    road: z.string().describe("Exact name from list_prefabs kind=road, e.g. Basic Road"),
-    points: z.string().optional(), curve: z.string().optional(),
-    x1: z.number().optional(), z1: z.number().optional(), x2: z.number().optional(), z2: z.number().optional(),
-    cx: z.number().optional(), cz: z.number().optional(),
-    elevation: z.number().optional(), reverse: z.boolean().optional().describe("Flip direction (one-way roads)"),
-    snap: z.number().min(0).max(30).optional().describe("Default 8"),
-  },
-  "/road/build"
+  "Build roads or other networks (rails, pipes, power lines) with the game's own tool: ends snap to existing junctions/segments within `snap` metres and cross at intersections. Give `points` (\"x,z;x,z;...\", 2-64 points, one straight segment per pair) or x1,z1,x2,z2, optionally a curve control point (curve=\"x,z\" or cx,cz) for exactly 2 points. Use bridge/elevated/tunnel prefab names plus `elevation` (metres, negative for tunnels) for non-ground roads. Long roads are split into segments by the game. The answer lists any existing objects the road removed (`removed`) and, when it fails with ObjectCollision, which objects are in the way. Use dry_run=true to test first. " + COORD,
+  BUILD_ROAD_SHAPE,
+  async (args) => {
+    try { return { content: [{ type: "text", text: JSON.stringify(await buildRoad(args)) }] }; }
+    catch (e) { return { isError: true, content: [{ type: "text", text: e.message }] }; }
+  }
+);
+
+server.tool(
+  "build_many",
+  "Run several build steps in one call to save round trips and tokens. ops = array of objects with kind \"road\" (same fields as build_road, incl. with_pipe), \"zone\" (same as zone) or \"building\" (prefab, x, z, angle_deg). Steps run in order; a failing step is reported and the rest still run unless stop_on_error is true. The answer is one short line per step.",
+  { ops: z.array(z.record(z.any())).min(1).max(40), stop_on_error: z.boolean().optional() },
+  async (args) => {
+    const lines = [];
+    for (let i = 0; i < args.ops.length; i++) {
+      const { kind, ...op } = args.ops[i];
+      let line;
+      let failed = false;
+      try {
+        if (kind === "road") {
+          const r = await buildRoad(op);
+          failed = r.ok === false;
+          line = { ok: r.ok, built: r.built ?? r.would_build, removed: r.removed, error: r.error, pipe: r.pipe ? (r.pipe.ok ? "ok" : r.pipe.error) : undefined };
+        } else if (kind === "zone" || kind === "building") {
+          const path = kind === "zone" ? "/zone" : "/building/place";
+          const r = JSON.parse(await call(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(op) }));
+          line = { ok: r.ok !== false, ...(kind === "building" ? { id: r.id } : { cells_changed: r.cells_changed }) };
+        } else { failed = true; line = { ok: false, error: "unknown kind " + kind }; }
+      } catch (e) { failed = true; line = { ok: false, error: e.message }; }
+      lines.push(JSON.stringify({ step: i, kind, ...line }));
+      if (failed && args.stop_on_error) break;
+    }
+    return { content: [{ type: "text", text: lines.join("\n") }] };
+  }
 );
 postTool(server, "upgrade_road", "Change the road type of an existing segment (e.g. Basic Road -> Medium Road).", { segment: z.number().int(), road: z.string(), reverse: z.boolean().optional() }, "/road/upgrade");
 postTool(server, "bulldoze_road", "Remove a road segment by id (from get_map).", { segment: z.number().int() }, "/road/bulldoze");
@@ -284,10 +384,13 @@ postTool(
 server.tool(
   "screenshot",
   "Take a screenshot of the game view and return it as an image, so you can see what you built. By default the UI and the blur effects are hidden. Position the camera first with set_camera; use set_view for info views (traffic, electricity, zones...) and set_time for daylight.",
-  { hide_ui: z.boolean().optional().describe("Default true") },
+  { hide_ui: z.boolean().optional().describe("Default true"), width: z.number().int().min(160).max(2048).optional().describe("Shrink the image to this width in pixels (e.g. 640): far fewer tokens per picture. Default: full size") },
   async (args) => {
     try {
-      const qs = args.hide_ui === false ? "?hide_ui=0" : "";
+      const qp = new URLSearchParams();
+      if (args.hide_ui === false) qp.set("hide_ui", "0");
+      if (args.width) qp.set("width", String(args.width));
+      const qs = qp.toString() ? "?" + qp.toString() : "";
       const info = JSON.parse(await call("/screenshot" + qs));
       const data = await readFile(info.path);
       return { content: [

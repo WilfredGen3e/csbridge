@@ -17,10 +17,12 @@ namespace CSBridge
         private static string Zn(float v) { return Math.Round(v, 1).ToString(System.Globalization.CultureInfo.InvariantCulture); }
 
         // GET /map                         -> summary (counts, bounding box of the built-up area)
-        // GET /map?x=&z=&radius=&limit=    -> roads, buildings and zone cells in that circle (radius max 2000)
+        // GET /map?x=&z=&radius=&limit=[&include=roads,buildings,zones][&road=Power Line][&service=Electricity][&prefab=..]
+        //   -> roads, buildings and zone cells in that circle (radius max 2000), optionally filtered by type/service/name
         private static HttpResponse Map(HttpRequest req)
         {
             Dictionary<string, string> q = BuildEndpoints.ParseQuery(req.Query);
+            bool wantRoads = true, wantBlds = true;
             bool area = q.ContainsKey("x") || q.ContainsKey("z") || q.ContainsKey("radius");
             float cx = 0, cz = 0, radius = 0;
             if (area)
@@ -30,9 +32,27 @@ namespace CSBridge
                 if (radius <= 0f || radius > 2000f) throw new ApiException(400, "radius must be 1-2000");
                 BuildEndpoints.CheckBounds(cx, cz);
             }
-            int limit = BuildEndpoints.GetIntQ(q, "limit", 400, 1, 3000);
+            int limit = BuildEndpoints.GetIntQ(q, "limit", 200, 0, 3000);
             bool virt = q.ContainsKey("include_virtual") && q["include_virtual"] != "0" && q["include_virtual"] != "false";
             bool zones = !q.ContainsKey("zones") || (q["zones"] != "0" && q["zones"] != "false");
+            // Filters keep the output small: include=roads,buildings,zones; road=<name part>; service=<name part>; prefab=<name part>
+            string include; q.TryGetValue("include", out include);
+            if (include != null && include.Length > 0)
+            {
+                string inc = "," + include.ToLowerInvariant().Replace(" ", "") + ",";
+                zones = zones && inc.Contains(",zones,");
+                wantRoads = inc.Contains(",roads,"); wantBlds = inc.Contains(",buildings,");
+            }
+            bool verbose = q.ContainsKey("verbose") && q["verbose"] != "0" && q["verbose"] != "false";
+            bool countsOnly = q.ContainsKey("counts_only") && q["counts_only"] != "0" && q["counts_only"] != "false";
+            bool allNets = q.ContainsKey("all") && q["all"] != "0" && q["all"] != "false";
+            string roadF, svcF, prefabF;
+            q.TryGetValue("road", out roadF); q.TryGetValue("service", out svcF); q.TryGetValue("prefab", out prefabF);
+            if (roadF != null && roadF.Length == 0) roadF = null;
+            if (svcF != null && svcF.Length == 0) svcF = null;
+            if (prefabF != null && prefabF.Length == 0) prefabF = null;
+            if (roadF != null) allNets = true;
+            if (countsOnly) limit = 0;
 
             string json = GameThread.Run<string>(delegate ()
             {
@@ -43,6 +63,8 @@ namespace CSBridge
                 JsonWriter roads = new JsonWriter().Arr();
                 JsonWriter blds = new JsonWriter().Arr();
                 int roadsOut = 0, bldsOut = 0;
+                Dictionary<string, int> roadTypes = new Dictionary<string, int>(), bldServices = new Dictionary<string, int>();
+                int minorHidden = 0;
 
                 for (int i = 1; i < nm.m_segments.m_buffer.Length; i++)
                 {
@@ -54,11 +76,22 @@ namespace CSBridge
                     if (!virt && (info.m_netAI is TransportLineAI || info.name.StartsWith("Pedestrian Connection"))) continue;
                     Vector3 a = nm.m_nodes.m_buffer[s.m_startNode].m_position, b = nm.m_nodes.m_buffer[s.m_endNode].m_position;
                     segCount++;
-                    if (!area || roadsOut >= limit) continue;
+                    if (!area || !wantRoads) continue;
+                    if (roadF != null && info.name.IndexOf(roadF, StringComparison.OrdinalIgnoreCase) < 0) continue;
                     Vector3 mid = (a + b) * 0.5f;
                     float dx = mid.x - cx, dz = mid.z - cz;
                     if (dx * dx + dz * dz > (radius + s.m_averageLength) * (radius + s.m_averageLength)) continue;
+                    int rc; roadTypes.TryGetValue(info.name, out rc); roadTypes[info.name] = rc + 1;
+                    // Pipes, power lines and footpaths are most of the segments but rarely what you look for: hide unless asked.
+                    string ai = info.m_netAI.GetType().Name;
+                    if (!allNets && (ai.IndexOf("Pipe", StringComparison.Ordinal) >= 0 || ai.IndexOf("PowerLine", StringComparison.Ordinal) >= 0 || ai.IndexOf("Pedestrian", StringComparison.Ordinal) >= 0)) { minorHidden++; continue; }
+                    if (roadsOut >= limit) continue;
                     roadsOut++;
+                    if (!verbose)
+                    {
+                        roads.Raw("[" + i + "," + Quote(info.name) + "," + (int)Math.Round(a.x) + "," + (int)Math.Round(a.z) + "," + (int)Math.Round(b.x) + "," + (int)Math.Round(b.z) + "]");
+                        continue;
+                    }
                     roads.Obj().Prop("id", i).Prop("road", info.name)
                         .Prop("start_node", s.m_startNode).Prop("end_node", s.m_endNode)
                         .Prop("x1", Math.Round(a.x, 1)).Prop("z1", Math.Round(a.z, 1))
@@ -77,10 +110,20 @@ namespace CSBridge
                     Vector3 p = b.m_position;
                     minX = Mathf.Min(minX, p.x); maxX = Mathf.Max(maxX, p.x);
                     minZ = Mathf.Min(minZ, p.z); maxZ = Mathf.Max(maxZ, p.z);
-                    if (!area || bldsOut >= limit) continue;
+                    if (!area || !wantBlds) continue;
+                    if (svcF != null && info.m_class.m_service.ToString().IndexOf(svcF, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    if (prefabF != null && info.name.IndexOf(prefabF, StringComparison.OrdinalIgnoreCase) < 0) continue;
                     float dx = p.x - cx, dz = p.z - cz;
                     if (dx * dx + dz * dz > radius * radius) continue;
+                    string sv = info.m_class.m_service.ToString();
+                    int bc; bldServices.TryGetValue(sv, out bc); bldServices[sv] = bc + 1;
+                    if (bldsOut >= limit) continue;
                     bldsOut++;
+                    if (!verbose)
+                    {
+                        blds.Raw("[" + i + "," + Quote(info.name) + "," + Quote(sv) + "," + (int)Math.Round(p.x) + "," + (int)Math.Round(p.z) + "," + (int)Math.Round(b.m_angle * Mathf.Rad2Deg) + "]");
+                        continue;
+                    }
                     blds.Obj().Prop("id", i).Prop("prefab", info.name).Prop("service", info.m_class.m_service.ToString())
                         .Prop("x", Math.Round(p.x, 1)).Prop("z", Math.Round(p.z, 1))
                         .Prop("angle_deg", Math.Round(b.m_angle * Mathf.Rad2Deg, 0))
@@ -95,6 +138,10 @@ namespace CSBridge
                 if (area)
                 {
                     w.Prop("center_x", cx).Prop("center_z", cz).Prop("radius", radius);
+                    if (!verbose) w.Prop("format", "roads=[id,type,x1,z1,x2,z2] buildings=[id,prefab,service,x,z,angle]; pass verbose=true for objects");
+                    w.ObjIn("road_types_in_area"); foreach (KeyValuePair<string, int> kv in roadTypes) w.Prop(kv.Key, kv.Value); w.EndObj();
+                    w.ObjIn("building_services_in_area"); foreach (KeyValuePair<string, int> kv in bldServices) w.Prop(kv.Key, kv.Value); w.EndObj();
+                    if (minorHidden > 0) w.Prop("hidden_pipes_powerlines_paths", minorHidden);
                     w.Raw("\"roads\":" + roads.EndArr().ToString());
                     w.Raw("\"buildings\":" + blds.EndArr().ToString());
                     w.Prop("roads_truncated", roadsOut >= limit).Prop("buildings_truncated", bldsOut >= limit);
@@ -104,6 +151,8 @@ namespace CSBridge
             }, 15000);
             return HttpResponse.Json(200, json);
         }
+
+        private static string Quote(string v) { return "\"" + v.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\""; }
 
         // Zone cells (8x8 m) inside the circle that are zoned, grouped as compact "x,z,zone" strings.
         private static void WriteZones(JsonWriter w, float cx, float cz, float radius, int maxCells)

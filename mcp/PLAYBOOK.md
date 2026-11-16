@@ -2,6 +2,15 @@
 
 You control a running Cities: Skylines 1 through tools. Plan like a city planner, build in small verified steps, and look at the result.
 
+## Save tokens
+- Start with `get_city_summary` (one call: stats, demand, problem counts, traffic, road/water/power connectivity) and repeat it after each build step instead of five separate calls.
+- `get_map`: radius <= 200, a low `limit`, and filters (`service`, `road`, `prefab`, `include`, `counts_only`). Pipes, power lines and footpaths are hidden unless you pass `all=true` or `road=`. For one building use `get_building`.
+- `build_road` answers with segment ids only; `verbose=true` gives details. Use `dry_run=true` to test: it reports what would be removed. A real build lists in `removed` every existing object (poles, lines, buildings) the new road replaced, and an ObjectCollision error names the objects in the way.
+- `build_many` runs several roads, zones and buildings in one call; `build_road` with `with_pipe=true` lays the water pipe along the same line.
+- `screenshot` with `width=640` costs far fewer tokens than full size. `load_save` waits until the city is ready.
+- Before running the game at speed 3 while you plan, switch on `set_guard`: it pauses the game when water, sewage or electricity capacity drops below consumption.
+- `get_progress` lists the milestones with their requirement; `list_prefabs` shows `unlock_milestone` for locked items.
+
 ## Rules of the house
 - Check `ping`, then `get_stats` and `get_areas`. Never overwrite a save you did not create: `save_game` refuses existing names, keep it that way. `load_save` and a game restart drop unsaved progress, so save first.
 - Build step by step: one neighbourhood at a time. After each step verify with `get_services`, `get_problems`, `get_demand` and a `screenshot` (set_time 12, set_camera top-down or isometric first).
